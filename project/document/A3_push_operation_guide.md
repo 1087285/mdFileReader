@@ -5,7 +5,7 @@
 | 項目 | 内容 |
 |------|------|
 | 文書名 | プッシュ運用ガイド |
-| 版数 | v1.0.0 |
+| 版数 | v1.1.0 |
 | 作成日 | 2026-03-02 |
 | 作成者 | GitHub Copilot（08_release_agent） |
 
@@ -74,8 +74,8 @@ git push origin main
 
 ```bash
 # 1. リリースタグを作成して push するだけで Windows .exe が自動生成される
-git tag v1.0.0
-git push origin v1.0.0
+git tag v1.1.0
+git push origin v1.1.0
 ```
 
 タグを push すると `.github/workflows/build-release.yml` が自動実行され、以下が行われる：
@@ -115,4 +115,5 @@ git push origin v1.0.0
 |------|------|----------|
 | v1.0.0 | 2026-03-02 | 初版作成 |
 | v1.0.1 | 2026-03-02 | §5.1 を GitHub Actions 自動ビルド手順に更新 |
+| v1.1.0 | 2026-03-02 | v1.1.0 タグ名・版数を Shift-JIS 対応リリースに更新 |
 

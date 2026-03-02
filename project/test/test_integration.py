@@ -128,11 +128,11 @@ class TestSaveFileIntegration:
     """IT-03: ファイル保存の BackendBridge → FileService 連携"""
 
     def test_IT_03_saveFile_writes_content(self, bridge, base_dir: Path):
-        """BackendBridge.saveFile がファイルに内容を書き込む"""
+        """BackendBridge.saveFile がファイルに内容を書き込む（UTF-8）"""
         target = base_dir / "write_test.md"
         target.write_text("initial", encoding="utf-8")
 
-        result = _parse(bridge.saveFile(str(target), "# 更新済みコンテンツ"))
+        result = _parse(bridge.saveFile(str(target), "# 更新済みコンテンツ", "utf-8"))
 
         assert result["success"] is True
         assert target.read_text(encoding="utf-8") == "# 更新済みコンテンツ"
@@ -140,9 +140,31 @@ class TestSaveFileIntegration:
     def test_IT_03_saveFile_creates_new_file(self, bridge, base_dir: Path):
         """BackendBridge.saveFile が新規ファイルを作成する"""
         target = base_dir / "new_via_save.md"
-        result = _parse(bridge.saveFile(str(target), "new content"))
+        result = _parse(bridge.saveFile(str(target), "new content", "utf-8"))
         assert result["success"] is True
         assert target.exists()
+
+    def test_IT_03a_saveFile_cp932(self, bridge, base_dir: Path):
+        """BackendBridge.saveFile が cp932 でファイルを保存する"""
+        target = base_dir / "cp932_save.md"
+        content = "# Shift-JIS保存テスト\n日本語テキスト"
+
+        result = _parse(bridge.saveFile(str(target), content, "cp932"))
+
+        assert result["success"] is True
+        # cp932 で読み直して内容が一致すること
+        saved = target.read_bytes().decode("cp932")
+        assert saved == content
+
+    def test_IT_03b_saveFile_encode_save_error(self, bridge, base_dir: Path):
+        """cp932 で表現できない文字を保存すると ENCODE_SAVE_ERROR が返る"""
+        target = base_dir / "emoji.md"
+        content = "# テスト\n絵文字: 🎉"
+
+        result = _parse(bridge.saveFile(str(target), content, "cp932"))
+
+        assert result["success"] is False
+        assert result["error"] == "ENCODE_SAVE_ERROR"
 
 
 # ============================================================
@@ -233,7 +255,7 @@ class TestPathTraversalIntegration:
         assert result["error"] == "PATH_TRAVERSAL"
 
     def test_IT_07_saveFile_traversal_blocked(self, bridge, base_dir: Path):
-        result = _parse(bridge.saveFile(str(base_dir / ".." / "x.md"), "x"))
+        result = _parse(bridge.saveFile(str(base_dir / ".." / "x.md"), "x", "utf-8"))
         assert result["error"] == "PATH_TRAVERSAL"
 
     def test_IT_07_createFile_traversal_blocked(self, bridge, base_dir: Path):
@@ -287,7 +309,7 @@ class TestE2EFlowIntegration:
         assert read_result["data"]["content"] == ""
 
         # Step 4: 保存
-        save_result = _parse(bridge.saveFile(str(md_path), "# E2E テスト\n本文"))
+        save_result = _parse(bridge.saveFile(str(md_path), "# E2E テスト\n本文", "utf-8"))
         assert save_result["success"] is True
 
         # Step 5: 保存内容確認

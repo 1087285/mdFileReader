@@ -5,10 +5,10 @@
 | 項目 | 内容 |
 |------|------|
 | 文書名 | 単体評価記録 |
-| 版数 | v1.0.0 |
+| 版数 | v1.1.0 |
 | 作成日 | 2026-03-02 |
 | 作成者 | GitHub Copilot（05_unit_test_agent） |
-| 参照元 | `project/document/03_detailed_design.md` v1.0.0, `project/document/04_implementation.md` v1.0.0 |
+| 参照元 | `project/document/03_detailed_design.md` v1.1.0, `project/document/04_implementation.md` v1.1.0 |
 | ステータス | 承認済み（2026-03-02） |
 
 ---
@@ -57,9 +57,11 @@
 | UT-BE-03 | `FileService.get_tree` | `.md` ファイルのみがツリーに含まれる | 正常 | ✅ PASS |
 | UT-BE-04 | `FileService.get_tree` | 存在しないフォルダは `FOLDER_NOT_FOUND` | 異常 | ✅ PASS |
 | UT-BE-05 | `FileService.read_file` | UTF-8 ファイルが正常に読み込まれる | 正常 | ✅ PASS |
-| UT-BE-06 | `FileService.read_file` | Shift-JIS ファイルが文字化けなく読み込まれる | 正常 | ✅ PASS |
+| UT-BE-06 | `FileService.read_file` | Shift-JIS ファイルが文字化けなく読み込まれ、encoding が cp932 で返される | 正常 | ✅ PASS |
 | UT-BE-07 | `FileService.read_file` | 存在しないファイルは `FILE_NOT_FOUND` | 異常 | ✅ PASS |
 | UT-BE-08 | `FileService.save_file` | UTF-8 で保存されている（BOM なし） | 正常 | ✅ PASS |
+| UT-BE-08a | `FileService.save_file` | cp932 指定で Shift-JIS ファイルが正しく保存される | 正常 | ✅ PASS |
+| UT-BE-08b | `FileService.save_file` | cp932 で表現できない文字（絵文字）は `ENCODE_SAVE_ERROR` | 異常 | ✅ PASS |
 | UT-BE-09 | `FileService.save_file` | 権限なしファイルへの保存は `PERMISSION_DENIED` | 異常 | ✅ PASS |
 | UT-BE-10 | `FileService.create_file` | 新規ファイルが作成される | 正常 | ✅ PASS |
 | UT-BE-11 | `FileService.create_file` | 同名ファイル存在時は `FILE_EXISTS` | 異常 | ✅ PASS |
@@ -73,7 +75,7 @@
 | UT-FE-04 | `TreeView.onDelete` | confirm キャンセル時は `deleteFile` が呼ばれない | 異常 | ⚠️ 手動確認要 |
 | UT-FE-05 | `TreeView.onNewFile` | 空文字入力時はエラーが表示される | 異常 | ⚠️ 手動確認要 |
 
-**BE テスト集計: 15 / 15 PASS（pytest 自動実行）**  
+**BE テスト集計: 17 / 17 PASS（pytest 自動実行、設計検証ケース含む 24 テスト PASS）**  
 **FE テスト: 5 件 未実施（GUI 実機確認待ち）**
 
 ---
@@ -104,6 +106,7 @@ MC/DC 達成率: **100%**
 | C1 | `resolved.exists()` が False | UT-BE-07 → `FILE_NOT_FOUND` | UT-BE-05/06 → 正常読込 |
 | C2 | `not raw`（空ファイル） | `test_read_file_empty_returns_empty_string` → 空文字返却 | UT-BE-05 → 通常デコード |
 | C3 | `confidence < 0.5` | UT-BE-06（低信頼度の場合）→ UTF-8 フォールバック | UT-BE-05 → 検出エンコードで読込 |
+| C4 | encoding が `shift_jis` 系 | UT-BE-06 → `cp932` に正規化 | UT-BE-05 → そのまま使用（`utf-8`） |
 
 MC/DC 達成率: **100%**
 
@@ -111,7 +114,8 @@ MC/DC 達成率: **100%**
 
 | 基本条件 | 条件内容 | True ケース | False ケース |
 |----------|---------|------------|-------------|
-| C1 | OS `PermissionError` 発生 | UT-BE-09 → `PERMISSION_DENIED` | UT-BE-08 → 正常保存 |
+| C1 | OS `PermissionError` 発生 | UT-BE-09 → `PERMISSION_DENIED` | UT-BE-08/08a → 正常保存 |
+| C2 | `UnicodeEncodeError` 発生 | UT-BE-08b → `ENCODE_SAVE_ERROR` | UT-BE-08a → cp932 保存成功 |
 
 MC/DC 達成率: **100%**
 
@@ -169,7 +173,7 @@ MC/DC 達成率: **100%**
 
 | # | 確認項目 | 状態 |
 |---|----------|------|
-| 1 | UT-BE-01〜15 の全 pytest テストが PASS している | ✅ 確認済み（22 / 22 PASS） |
+| 1 | UT-BE-01〜15 および UT-BE-08a/08b の全 pytest テストが PASS している | ✅ 確認済み（24 / 24 PASS） |
 | 2 | 全関数の MC/DC 達成率が 100% である | ✅ 確認済み |
 | 3 | 不具合 BUG-BE-01 が是正済みであり、是正後テストが PASS している | ✅ 確認済み |
 | 4 | UT-FE-01〜05 の未実施事項が結合評価への引継ぎ事項として記録されている | ✅ §9 に記録済み |
@@ -198,4 +202,13 @@ MC/DC 達成率: **100%**
 | バグ修正 | `project/src/file_service.py` | BUG-BE-01: PermissionError エラーコード正規化（`_perm_code()` ヘルパー追加） |
 | 新規作成 | `project/test/__init__.py` | テストパッケージ初期化ファイル |
 | 新規作成 | `project/test/test_file_service.py` | pytest テストファイル（22 ケース、UT-BE-01〜15 + 補完 MC/DC ケース） |
+---
 
+### 12.2 v1.1.0 変更内容（Shift-JIS 対応）
+
+| 変更種別 | 対象 | 内容 |
+|----------|------|------|
+| テスト内容変更 | `test_file_service.py` – UT-BE-06 | Shift-JIS 読み込み後の `encoding` が `cp932` で返されることを追加検証 |
+| テスト追加 | `test_file_service.py` – UT-BE-08a | cp932 エンコード指定で保存し、バイト列を cp932 で読み直して内容一致を確認 |
+| テスト追加 | `test_file_service.py` – UT-BE-08b | 絵文字を cp932 ファイルに保存 → `ENCODE_SAVE_ERROR` を確認 |
+| MC/DC 追加 | §7.4 `save_file` | C2（`UnicodeEncodeError`）の True/False 対が UT-BE-08b / UT-BE-08a で網羅されることを追記 |

@@ -53,8 +53,8 @@ const BridgeClient = (() => {
       _call("readFile", [filePath], callback);
     },
 
-    saveFile(filePath, content, callback) {
-      _call("saveFile", [filePath, content], callback);
+    saveFile(filePath, content, encoding, callback) {
+      _call("saveFile", [filePath, content, encoding], callback);
     },
 
     createFile(filePath, callback) {
@@ -159,6 +159,7 @@ const PreviewView = (() => {
 const EditorView = (() => {
   let _editor          = null;
   let _currentFilePath = null;
+  let _currentEncoding = "utf-8";
   let _isDirty         = false;
   let _visible         = true;
 
@@ -190,8 +191,9 @@ const EditorView = (() => {
     PreviewView.update(_editor.getValue());
   }
 
-  function load(filePath, content) {
+  function load(filePath, content, encoding) {
     _currentFilePath = filePath;
+    _currentEncoding = encoding || "utf-8";
     _isDirty = false;
     // change イベントを発火させないよう一時的に off
     _editor.off("change", _onChange);
@@ -207,7 +209,7 @@ const EditorView = (() => {
       StatusBar.showError("ファイルが選択されていません");
       return;
     }
-    BridgeClient.saveFile(_currentFilePath, _editor.getValue(), (res) => {
+    BridgeClient.saveFile(_currentFilePath, _editor.getValue(), _currentEncoding, (res) => {
       if (res.success) {
         _isDirty = false;
         StatusBar.showSuccess("保存しました");
@@ -231,19 +233,21 @@ const EditorView = (() => {
 
   function clear() {
     _currentFilePath = null;
+    _currentEncoding = "utf-8";
     _isDirty = false;
     _editor.off("change", _onChange);
     _editor.setValue("");
     _editor.on("change", () => _onChange());
   }
 
-  function getValue()         { return _editor ? _editor.getValue() : ""; }
-  function getCurrentPath()   { return _currentFilePath; }
-  function isDirty()          { return _isDirty; }
-  function isVisible()        { return _visible; }
-  function refresh()          { if (_editor) _editor.refresh(); }
+  function getValue()           { return _editor ? _editor.getValue() : ""; }
+  function getCurrentPath()     { return _currentFilePath; }
+  function getCurrentEncoding() { return _currentEncoding; }
+  function isDirty()            { return _isDirty; }
+  function isVisible()          { return _visible; }
+  function refresh()            { if (_editor) _editor.refresh(); }
 
-  return { init, load, save, toggle, clear, getValue, getCurrentPath, isDirty, isVisible, refresh };
+  return { init, load, save, toggle, clear, getValue, getCurrentPath, getCurrentEncoding, isDirty, isVisible, refresh };
 })();
 
 
@@ -374,7 +378,7 @@ const TreeView = (() => {
 
     BridgeClient.readFile(filePath, (res) => {
       if (res.success) {
-        EditorView.load(filePath, res.data.content);
+        EditorView.load(filePath, res.data.content, res.data.encoding);
         if (!PreviewView.isVisible()) PreviewView.show();
       } else {
         StatusBar.showError(_errorMessage(res.error));
@@ -486,7 +490,7 @@ const TreeView = (() => {
         // 現在開いているファイルがリネームされた場合、パスを更新
         if (_selectedPath === oldPath) {
           _selectedPath = newPath;
-          EditorView.load(newPath, EditorView.getValue());
+          EditorView.load(newPath, EditorView.getValue(), EditorView.getCurrentEncoding());
         }
         refresh();
         StatusBar.showSuccess(`"${oldName}" → "${trimmed}" に変更しました`);

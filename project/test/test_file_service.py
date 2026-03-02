@@ -156,18 +156,18 @@ class TestReadFile:
         assert result["error"] is None
 
     def test_UT_BE_06_shiftjis_file_read(self, fs: FileService, base_dir: Path):
-        """C3=True(低信頼度の場合) または 正常デコード: Shift-JIS ファイルが文字化けなく読み込まれる"""
+        """C3=False: Shift-JIS ファイルが文字化けなく読み込まれ、encodingが cp932 で返される"""
         target = base_dir / "sjis.md"
         content_str = "# Shift-JISテスト\nテキスト内容"
-        target.write_bytes(content_str.encode("shift_jis"))
+        target.write_bytes(content_str.encode("cp932"))
 
         result = _parse(fs.read_file(str(target)))
 
         assert result["success"] is True
-        # Shift-JIS として正しくデコードされるか、または replace で読み込まれる
-        # 文字化けチェック: 元の ASCII 文字（"#"、スペース）が含まれること
-        data_content = result["data"]["content"]
-        assert "#" in data_content, "コンテンツが読み込まれること"
+        # cp932 に正規化されていること（shift_jis のままでないこと）
+        assert result["data"]["encoding"] == "cp932", "encoding が cp932 に正規化されること"
+        # 元の内容が文字化けなく読み込まれること
+        assert result["data"]["content"] == content_str, "Shift-JIS コンテンツが正しくデコードされること"
         assert result["error"] is None
 
     def test_UT_BE_07_file_not_found(self, fs: FileService, base_dir: Path):
@@ -189,19 +189,22 @@ class TestReadFile:
 
 # ============================================================
 # save_file
-# UT-BE-08: UTF-8 で保存されている（BOM なし）
-# UT-BE-09: 権限なしファイルへの保存は PERMISSION_DENIED
+# UT-BE-08:  UTF-8 で保存されている（BOM なし）
+# UT-BE-08a: cp932 エンコードで保存される
+# UT-BE-08b: cp932 で表現できない文字は ENCODE_SAVE_ERROR
+# UT-BE-09:  権限なしファイルへの保存は PERMISSION_DENIED
 # ------------------------------------------------------------
 # MC/DC観点 (save_file):
-#   C1: PermissionError 発生 → True → PERMISSION_DENIED
-#   正常ケース: C1=False → UTF-8書き込み成功
+#   C1: PermissionError 発生     → True → PERMISSION_DENIED
+#   C2: UnicodeEncodeError 発生  → True → ENCODE_SAVE_ERROR
+#   正常ケース: C1=False, C2=False → 指定エンコードで書き込み成功
 # ============================================================
 
 class TestSaveFile:
     """UT-BE-08 / UT-BE-09  save_file MC/DC"""
 
     def test_UT_BE_08_save_utf8_no_bom(self, fs: FileService, base_dir: Path):
-        """C1=False: UTF-8 (BOMなし) で保存される"""
+        """C1=False, C2=False: UTF-8 (BOMなし) で保存される"""
         target = base_dir / "save_test.md"
         content = "# 保存テスト\nBOMなし UTF-8"
         result_json = _parse(fs.save_file(str(target), content))
@@ -212,6 +215,28 @@ class TestSaveFile:
         raw = target.read_bytes()
         assert not raw.startswith(b"\xef\xbb\xbf"), "BOM が付いていないこと"
         assert raw.decode("utf-8") == content
+
+    def test_UT_BE_08a_save_cp932(self, fs: FileService, base_dir: Path):
+        """C1=False, C2=False: cp932 エンコード指定でバイト列が正しく保存される"""
+        target = base_dir / "save_cp932.md"
+        content = "# Shift-JIS保存テスト\nテキスト内容"
+        result_json = _parse(fs.save_file(str(target), content, "cp932"))
+
+        assert result_json["success"] is True
+
+        # cp932 で読み直して内容が一致すること
+        saved = target.read_bytes().decode("cp932")
+        assert saved == content
+
+    def test_UT_BE_08b_encode_save_error(self, fs: FileService, base_dir: Path):
+        """C2=True: cp932 で表現できない文字（絵文字）を保存すると ENCODE_SAVE_ERROR"""
+        target = base_dir / "emoji.md"
+        # 絵文字は cp932 で表現できない
+        content = "# テスト\n絵文字: 🎉"
+        result = _parse(fs.save_file(str(target), content, "cp932"))
+
+        assert result["success"] is False
+        assert result["error"] == "ENCODE_SAVE_ERROR"
 
     def test_UT_BE_09_permission_denied_on_save(self, fs: FileService, base_dir: Path):
         """C1=True: 読み取り専用ファイルへの保存は PERMISSION_DENIED"""

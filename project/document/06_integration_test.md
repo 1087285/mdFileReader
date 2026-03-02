@@ -5,10 +5,10 @@
 | 項目 | 内容 |
 |------|------|
 | 文書名 | 結合評価記録 |
-| 版数 | v1.0.0 |
+| 版数 | v1.1.0 |
 | 作成日 | 2026-03-02 |
 | 作成者 | GitHub Copilot（06_integration_test_agent） |
-| 参照元 | `project/document/02_basic_design.md` v1.0.0, `project/document/05_unit_test.md` v1.0.0 |
+| 参照元 | `project/document/02_basic_design.md` v1.1.0, `project/document/05_unit_test.md` v1.1.0 |
 | ステータス | 承認済み（2026-03-02） |
 
 ---
@@ -55,6 +55,8 @@
 | IT-02 | BackendBridge.readFile → フォルダ外アクセスは PATH_TRAVERSAL | 異常 | ✅ PASS |
 | IT-03 | BackendBridge.saveFile → ファイル内容が更新される | 正常 | ✅ PASS |
 | IT-03 | BackendBridge.saveFile → 新規ファイルへの保存が可能 | 正常 | ✅ PASS |
+| IT-03a | BackendBridge.saveFile → cp932 エンコード指定で Shift-JIS ファイルが正しく保存される | 正常 | ✅ PASS |
+| IT-03b | BackendBridge.saveFile → cp932 で表現できない文字は `ENCODE_SAVE_ERROR` | 異常 | ✅ PASS |
 | IT-04 | BackendBridge.createFile → 空ファイルが作成される | 正常 | ✅ PASS |
 | IT-04 | BackendBridge.createFile → 重複ファイルは FILE_EXISTS | 異常 | ✅ PASS |
 | IT-05 | BackendBridge.deleteFile → ファイルが削除される | 正常 | ✅ PASS |
@@ -68,7 +70,7 @@
 | IT-07 | renameFile 移動先フォルダ外アクセスブロック | 異常 | ✅ PASS |
 | IT-08 | Python 層 E2E: 作成→読込→保存→リネーム→削除の連続操作 | 正常 | ✅ PASS |
 
-**自動テスト集計: 19 / 19 PASS（pytest、BackendBridge + FileService 統合）**
+**自動テスト集計: 21 / 21 PASS（pytest、BackendBridge + FileService 統合）**
 
 ---
 
@@ -81,7 +83,7 @@
 |---------|---------|---------|------|
 | IT-09a | アプリ起動 → JS `backend.getTree(path, cb)` がコールバックで JSON を受信する | `cb` が呼ばれ `res.success === true` でツリーデータが届く | ⚠️ 未実施 |
 | IT-09b | アプリ起動 → JS `backend.readFile(path, cb)` がコールバックで内容を受信する | `res.data.content` にファイル内容が含まれる | ⚠️ 未実施 |
-| IT-09c | アプリ起動 → JS `backend.saveFile(path, content, cb)` がコールバックで成功を返す | `res.success === true` かつファイルが更新される | ⚠️ 未実施 |
+| IT-09c | アプリ起動 → JS `backend.saveFile(path, content, encoding, cb)` がコールバックで成功を返す | `res.success === true` かつファイルが指定エンコードで更新される | ⚠️ 未実施 |
 | IT-09d | アプリ起動 → JS `backend.selectFolder(cb)` でフォルダ選択ダイアログが開く | `cb` が選択パス文字列で呼ばれる | ⚠️ 未実施 |
 | IT-10 | アプリ起動 → フォルダ選択 → ツリー表示 → ファイルをクリック → 編集 → Ctrl+S → ステータスバー確認 | ツリー描画・エディタ表示・保存成功メッセージが正常に動作する | ⚠️ 未実施 |
 
@@ -129,3 +131,13 @@
 | バグ修正 | `project/src/backend_bridge.py` | BUG-IT-01: QFileDialog をトップレベルから `selectFolder` 内の遅延 import へ移動 |
 | 新規作成 | `project/test/test_integration.py` | pytest 結合テストファイル（19 ケース、IT-01〜IT-08） |
 
+---
+
+### 9.2 v1.1.0 変更内容（Shift-JIS 対応）
+
+| 変更種別 | 対象 | 内容 |
+|----------|------|------|
+| テスト内容変更 | `test_integration.py` – IT-03 / IT-07 | `bridge.saveFile()` 呼び出しに `encoding` 引数を追加 |
+| テスト追加 | `test_integration.py` – IT-03a | cp932 エンコード指定で Shift-JIS 保存 → バイト列を cp932 で読み直して内容一致を確認 |
+| テスト追加 | `test_integration.py` – IT-03b | 絵文字を cp932 ファイルへ保存 → `ENCODE_SAVE_ERROR` を確認 |
+| 手動確認内容変更 | IT-09c | `backend.saveFile` 呼び出しのシグネチャを `(path, content, encoding, cb)` に更新 |

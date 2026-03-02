@@ -5,11 +5,12 @@
 | 項目 | 内容 |
 |------|------|
 | 文書名 | 詳細設計書 |
-| 版数 | v1.0.0 |
+| 版数 | v1.1.0 |
 | 作成日 | 2026-03-02 |
+| 最終更新日 | 2026-03-02（v1.1.0 差分更新） |
 | 作成者 | GitHub Copilot（03_detailed_design_agent） |
-| 参照元 | `project/document/02_basic_design.md` v1.0.0 |
-| ステータス | 承認済み（2026-03-02） |
+| 参照元 | `project/document/02_basic_design.md` v1.1.0 |
+| ステータス | レビュー待ち |
 
 ---
 
@@ -178,14 +179,14 @@ new QWebChannel(qt.webChannelTransport, (channel) => {
 | `selectFolder()` | なし | フォルダ選択ダイアログを開き、選択パスを取得する |
 | `getTree(folderPath)` | `folderPath: string` | フォルダ配下のツリーJSONを取得する |
 | `readFile(filePath)` | `filePath: string` | ファイル内容を読み込む |
-| `saveFile(filePath, content)` | `filePath: string`, `content: string` | ファイルをUTF-8で保存する |
+| `saveFile(filePath, content, encoding)` | `filePath: string`, `content: string`, `encoding: string` | ファイルを**読み込み時のエンコード**で保存する（`encoding` は `EditorView._currentEncoding` を渡す） |
 | `createFile(filePath)` | `filePath: string` | 新規 `.md` ファイルを作成する |
 | `deleteFile(filePath)` | `filePath: string` | ファイルを削除する |
 | `renameFile(oldPath, newPath)` | `oldPath: string`, `newPath: string` | ファイル/フォルダ名を変更する |
 
 **コールバックパターン（すべて共通）:**
 ```javascript
-_backend.saveFile(filePath, content, (responseJson) => {
+_backend.saveFile(filePath, content, encoding, (responseJson) => {
   const res = JSON.parse(responseJson);
   if (res.success) {
     StatusBar.showSuccess("保存しました");
@@ -194,6 +195,8 @@ _backend.saveFile(filePath, content, (responseJson) => {
   }
 });
 ```
+
+> **エンコードの扱い:** `readFile` のレスポンス `data.encoding` を `EditorView._currentEncoding` に内部保持し、`saveFile` 呼び出し時に第3引数として渡す。JS 側はエンコード変換を一切行わない。
 
 ---
 
@@ -213,7 +216,7 @@ _backend.saveFile(filePath, content, (responseJson) => {
 | 関数名 | 引数 | 戻り値 | 処理内容 |
 |--------|------|--------|----------|
 | `render(treeData)` | `treeData: object` | void | ツリーJSONを再帰的に `<ul>/<li>` でHTMLレンダリングし `#tree-container` に挿入する |
-| `onFileClick(filePath)` | `filePath: string` | void | `BridgeClient.readFile()` を呼び出し、成功時に `EditorView.load(content)` と `PreviewView.update(content)` を実行する |
+| `onFileClick(filePath)` | `filePath: string` | void | `BridgeClient.readFile()` を呼び出し、成功時に `EditorView.load(filePath, content, encoding)` と `PreviewView.update(content)` を実行する |
 | `onFolderToggle(folderPath)` | `folderPath: string` | void | フォルダノードの `expanded` クラスをトグルし子要素の表示/非表示を切り替える |
 | `showContextMenu(event, targetPath)` | `event: MouseEvent`, `targetPath: string` | void | `#context-menu` を表示し `_contextTarget` にパスをセットする |
 | `hideContextMenu()` | なし | void | `#context-menu` を非表示にする |
@@ -234,6 +237,7 @@ _backend.saveFile(filePath, content, (responseJson) => {
 |--------|----|------|
 | `_editor` | CodeMirror instance | CodeMirror インスタンス |
 | `_currentFilePath` | string \| null | 現在編集中のファイルパス |
+| `_currentEncoding` | string | 読み込み時に判定したエンコード（例: `"utf-8"`, `"cp932"`）。新規ファイル/未読込時は `"utf-8"` |
 | `_isDirty` | boolean | 未保存変更ありフラグ |
 | `_visible` | boolean | エディタペインの表示状態 |
 
@@ -254,11 +258,11 @@ _editor = CodeMirror.fromTextArea(document.getElementById("editor"), {
 
 | 関数名 | 引数 | 戻り値 | 処理内容 |
 |--------|------|--------|----------|
-| `load(filePath, content)` | `filePath: string`, `content: string` | void | `_editor.setValue(content)` でエディタに内容をセット。`_currentFilePath` を更新。`_isDirty = false`。`StatusBar.clear()` |
+| `load(filePath, content, encoding)` | `filePath: string`, `content: string`, `encoding: string` | void | `_editor.setValue(content)` でエディタに内容をセット。`_currentFilePath` と `_currentEncoding` を更新。`_isDirty = false`。`StatusBar.clear()` |
 | `onChange()` | なし | void | `_isDirty = true` にセット。`StatusBar.showWarning("未保存の変更があります")`。`PreviewView.update(_editor.getValue())` |
-| `save()` | なし | void | `_currentFilePath` が null なら `StatusBar.showError("ファイルが選択されていません")` で早期リターン。`BridgeClient.saveFile()` 呼び出し |
+| `save()` | なし | void | `_currentFilePath` が null なら `StatusBar.showError("ファイルが選択されていません")` で早期リターン。`BridgeClient.saveFile(_currentFilePath, content, _currentEncoding)` 呼び出し |
 | `toggle()` | なし | void | `_visible` をトグルし `#editor-container` の表示/非表示を切り替える |
-| `clear()` | なし | void | `_editor.setValue("")`。`_currentFilePath = null`。`_isDirty = false` |
+| `clear()` | なし | void | `_editor.setValue("")`。`_currentFilePath = null`。`_currentEncoding = "utf-8"`。`_isDirty = false` |
 | `getValue()` | なし | string | `_editor.getValue()` を返す |
 
 ---
@@ -359,7 +363,7 @@ class BackendBridge(QObject):
 | `selectFolder(callback)` | `@pyqtSlot(result=str)` | `QFileDialog.getExistingDirectory()` を呼び出し、選択パスを文字列で返す。未選択時は `""` を返す |
 | `getTree(folder_path, callback)` | `@pyqtSlot(str, result=str)` | `FileService.get_tree(folder_path)` を呼び出し、結果JSONを返す |
 | `readFile(file_path, callback)` | `@pyqtSlot(str, result=str)` | `FileService.read_file(file_path)` を呼び出し、結果JSONを返す |
-| `saveFile(file_path, content, callback)` | `@pyqtSlot(str, str, result=str)` | `FileService.save_file(file_path, content)` を呼び出し、結果JSONを返す |
+| `saveFile(file_path, content, encoding, callback)` | `@pyqtSlot(str, str, str, result=str)` | `FileService.save_file(file_path, content, encoding)` を呼び出し、結果JSONを返す |
 | `createFile(file_path, callback)` | `@pyqtSlot(str, result=str)` | `FileService.create_file(file_path)` を呼び出し、結果JSONを返す |
 | `deleteFile(file_path, callback)` | `@pyqtSlot(str, result=str)` | `FileService.delete_file(file_path)` を呼び出し、結果JSONを返す |
 | `renameFile(old_path, new_path, callback)` | `@pyqtSlot(str, str, result=str)` | `FileService.rename_file(old_path, new_path)` を呼び出し、結果JSONを返す |
@@ -425,20 +429,23 @@ class FileService:
 - **処理:**
   1. `validate_path(file_path)` でバリデーション。
   2. `raw = path.read_bytes()` でバイト列を読み込む。
-  3. `chardet.detect(raw)` で文字コードを判定する。
-  4. `raw.decode(detected_encoding, errors='replace')` でデコードする。
-  5. `chardet` スコアが 0.5 未満の場合は UTF-8 でフォールバック。
-  6. `{"success": True, "data": {"path": str, "content": str, "encoding": str}, "error": None}` を返す。
+  3. `chardet.detect(raw)` で文字コードを判定する。**Shift-JIS（`cp932`）および UTF-8 は必ずカバーする。**
+  4. `detected_encoding` が `None` またはスコア < 0.5 の場合は `"utf-8"` でフォールバック。
+  5. `chardet` が `"shift_jis"` / `"shift-jis"` を返した場合、`"cp932"` に展開する（Windows互換性確保）。
+  6. `raw.decode(detected_encoding, errors='replace')` でデコードする。
+  7. `{"success": True, "data": {"path": str, "content": str, "encoding": str}, "error": None}` を返す。`encoding` は展開後の実際の値（例: `"utf-8"`, `"cp932"`）。
 - **例外処理:** `FileNotFoundError` → `FILE_NOT_FOUND` / `PermissionError` → `PERMISSION_DENIED` / デコード失敗 → `ENCODING_ERROR`
 
 ---
 
-##### `save_file(file_path: str, content: str) -> str`
+##### `save_file(file_path: str, content: str, encoding: str = "utf-8") -> str`
 - **処理:**
   1. `validate_path(file_path)` でバリデーション。
-  2. `path.write_text(content, encoding="utf-8")` で UTF-8 (BOM なし) 書き込み。
-  3. `{"success": True, "data": None, "error": None}` を返す。
-- **例外処理:** `PermissionError` → `PERMISSION_DENIED`
+  2. `encoding` が `None` または空文字の場合は `"utf-8"` でフォールバック。
+  3. `path.write_text(content, encoding=encoding)` で**引数のエンコード**で書き込む。
+  4. 新規ファイル作成（`create_file()` 経由）の場合は呼び出し元が `"utf-8"` を渡すこと。
+  5. `{"success": True, "data": None, "error": None}` を返す。
+- **例外処理:** `PermissionError` → `PERMISSION_DENIED` / `UnicodeEncodeError` → `ENCODE_SAVE_ERROR`
 
 ---
 
@@ -474,7 +481,7 @@ class FileService:
 | `backend.selectFolder(cb)` | `selectFolder()` | なし | `string`（フォルダパス or `""`） | ダイアログ表示はメインスレッドで実行 |
 | `backend.getTree(path, cb)` | `getTree(str)` | `folderPath: string` | `{success, data: treeNode, error}` | |
 | `backend.readFile(path, cb)` | `readFile(str)` | `filePath: string` | `{success, data: {path,content,encoding}, error}` | |
-| `backend.saveFile(path, content, cb)` | `saveFile(str,str)` | `filePath, content: string` | `{success, data: null, error}` | |
+| `backend.saveFile(path, content, encoding, cb)` | `saveFile(str,str,str)` | `filePath, content, encoding: string` | `{success, data: null, error}` | `encoding` に `_currentEncoding` を渡す |
 | `backend.createFile(path, cb)` | `createFile(str)` | `filePath: string` | `{success, data: null, error}` | |
 | `backend.deleteFile(path, cb)` | `deleteFile(str)` | `filePath: string` | `{success, data: null, error}` | |
 | `backend.renameFile(old, new, cb)` | `renameFile(str,str)` | `oldPath, newPath: string` | `{success, data: null, error}` | |
@@ -520,6 +527,7 @@ class FileService:
 | `PERMISSION_DENIED` | 読み取り・書き込み権限なし | `PermissionError` | `"アクセスが拒否されました"` |
 | `PATH_TRAVERSAL` | 指定フォルダ外へのアクセス | `PermissionError` | `"フォルダ外へのアクセスは禁止されています"` |
 | `ENCODING_ERROR` | 文字コード判定・デコード失敗 | UnicodeDecodeError 等 | `"文字コードを判定できませんでした"` |
+| `ENCODE_SAVE_ERROR` | 元エンコードで表現できない文字を含む保存失敗 | `UnicodeEncodeError` | `"元の文字コードで表現できない文字が含まれます"` |
 | `FILE_EXISTS` | 同名ファイルが既に存在する | `FileExistsError` | `"同名のファイルが既に存在します"` |
 | `BASE_NOT_SET` | ベースパスが未設定 | `ValueError` | `"フォルダが選択されていません"` |
 | `UNKNOWN_ERROR` | 上記以外の例外 | `Exception` | `"予期しないエラーが発生しました"` |
@@ -537,6 +545,8 @@ def _safe_execute(self, func, *args) -> str:
         return self._err(str(e))
     except FileExistsError:
         return self._err("FILE_EXISTS")
+    except UnicodeEncodeError:
+        return self._err("ENCODE_SAVE_ERROR")
     except ValueError as e:
         return self._err(str(e))
     except Exception:
@@ -587,7 +597,9 @@ def resource_path(relative_path: str) -> Path:
 | UT-BE-05 | `FileService.read_file` | UTF-8 ファイルが正常に読み込まれる | 正常 |
 | UT-BE-06 | `FileService.read_file` | Shift-JIS ファイルが文字化けなく読み込まれる | 正常 |
 | UT-BE-07 | `FileService.read_file` | 存在しないファイルは `FILE_NOT_FOUND` | 異常 |
-| UT-BE-08 | `FileService.save_file` | UTF-8 で保存されている（BOM なし） | 正常 |
+| UT-BE-08 | `FileService.save_file` | `cp932` エンコードで保存すると Shift-JIS ファイルとして書き込まれる | 正常 |
+| UT-BE-08a | `FileService.save_file` | `utf-8` エンコードで保存すると BOM なし UTF-8 で書き込まれる | 正常 |
+| UT-BE-08b | `FileService.save_file` | `cp932` で表現できない文字（絵文字等）を含む保存は `ENCODE_SAVE_ERROR` | 異常 |
 | UT-BE-09 | `FileService.save_file` | 権限なしファイルへの保存は `PERMISSION_DENIED` | 異常 |
 | UT-BE-10 | `FileService.create_file` | 新規ファイルが作成される | 正常 |
 | UT-BE-11 | `FileService.create_file` | 同名ファイル存在時は `FILE_EXISTS` | 異常 |
@@ -614,6 +626,8 @@ def resource_path(relative_path: str) -> Path:
 | 5 | `resource_path()` ヘルパー | PyInstaller と開発時の両方に対応するため必ず使用すること |
 | 6 | メインスレッド制約 | `QFileDialog` 等の Qt UI 操作はメインスレッドで実行すること（QWebChannel のコールバックは別スレッドで呼ばれる場合がある） |
 | 7 | HTML ロード方法 | `QWebEngineView.setUrl(QUrl.fromLocalFile(str(resource_path("resources/ui.html"))))` を使用すること |
+| **8** | **`save_file` のエンコード引数** | **`BackendBridge.saveFile` の `@pyqtSlot` シグネチャを `(str, str, str)` に変更し、`encoding` を第3引数として受け取ること** |
+| **9** | **`read_file` の `encoding` 実装方針** | **`chardet` が `shift_jis` を返した場合は `cp932` に展開して保存・返却すること。`cp932` は Windows 互換性を確保するため** |
 
 ---
 
@@ -621,29 +635,54 @@ def resource_path(relative_path: str) -> Path:
 
 | # | 確認項目 | 状態 |
 |---|----------|------|
-| 1 | Python 全クラスの関数仕様（引数・戻り値・例外）が定義されている | ✅ 承認済み |
-| 2 | JavaScript 全モジュールの関数仕様が定義されている | ✅ 承認済み |
-| 3 | QWebChannel 連携インターフェースが実装可能な粒度で定義されている | ✅ 承認済み |
-| 4 | 例外処理・error_code が全ケースで定義されている | ✅ 承認済み |
-| 5 | PyInstaller ビルド設定方針が定義されている | ✅ 承認済み |
-| 6 | 単体評価観点が定義されている | ✅ 承認済み |
-| 7 | GitHub 使用者のレビュー承認が完了している | ✅ 承認済み（2026-03-02） |
+| 1 | Python 全クラスの関数仕様（引数・戻り値・例外）が定義されている | ⬜ レビュー待ち |
+| 2 | JavaScript 全モジュールの関数仕様が定義されている | ⬜ レビュー待ち |
+| 3 | QWebChannel 連携インターフェースが実装可能な粒度で定義されている | ⬜ レビュー待ち |
+| 4 | 例外処理・error_code が全ケースで定義されている | ⬜ レビュー待ち |
+| 5 | PyInstaller ビルド設定方針が定義されている | ⬜ レビュー待ち |
+| 6 | 単体評価観点が定義されている | ⬜ レビュー待ち |
+| 7 | GitHub 使用者のレビュー承認が完了している | ⬜ レビュー待ち |
 
 ---
 
 ## 9. 差分開発情報
 
-### 9.1 変更一覧
+### 9.0 版数履歴
+
+| 版数 | 内容 | 日付 |
+|------|------|------|
+| v1.0.0 | `02_basic_design.md` v1.0.0 をもとに初版を新規作成 | 2026-03-02 |
+| v1.1.0 | `02_basic_design.md` v1.1.0 の変更（Shift-JIS 対応強化、エンコード保持保存）を反映 | 2026-03-02 |
+
+### 9.1 変更一覧（v1.0.0 → v1.1.0）
 
 | 変更種別 | 対象 | 内容 |
 |----------|------|------|
-| 新規作成 | 本文書全体 | `02_basic_design.md` v1.0.0 をもとに初版を新規作成 |
+| 変更 | `read_file` 指針 §3.2.3 | Shift-JIS（`cp932`）必対応・`shift_jis`→`cp932` 展開・スコア閾値順序変更を追記 |
+| 変更 | `save_file` 指針 §3.2.3 | UTF-8 固定から `encoding` 引数導入に変更。フォールバック・新規ファイル方針を明記 |
+| 変更 | `BackendBridge.saveFile` §3.2.2 | シグネチャを `(str, str, str)` に変更（`encoding` 引数追加） |
+| 変更 | `EditorView` 状態変数 §2.7.3 | `_currentEncoding` 変数を追加 |
+| 変更 | `EditorView.load()` §2.7.3 | `encoding` 引数を追加し `_currentEncoding` に保持 |
+| 変更 | `EditorView.save()` §2.7.3 | `saveFile` 呼び出しに `_currentEncoding` を渡すよう変更 |
+| 変更 | `EditorView.clear()` §2.7.3 | `_currentEncoding = "utf-8"` リセットを追加 |
+| 変更 | `TreeView.onFileClick` §2.7.2 | `EditorView.load()` 呼び出しに `encoding` 引数を追加 |
+| 変更 | `BridgeClient.saveFile` §2.7.1 | `encoding` 引数追加の説明に更新 |
+| 変更 | QWebChannel I/F 表 §3.3 | `saveFile` の引数・スロット署名に `encoding` を追加 |
+| 追加 | `error_code: ENCODE_SAVE_ERROR` §4.1 | エンコード非対応文字の保存失敗用エラーコードを追加 |
+| 変更 | `_safe_execute` §4.2 | `UnicodeEncodeError` のハンドリングを追加 |
+| 追加 | UT-BE-08a, UT-BE-08b §6.1 | Shift-JIS 保存正常・`ENCODE_SAVE_ERROR` 異常テストを追加 |
+| 変更 | 引継ぎ項目 8, 9 §7 | `save_file` エンコード引数・`read_file` の `cp932` 展開実装方針を追加 |
 
 ### 9.2 実装工程（04）への必須引継ぎ
 
-- 初版のため差分なし。§7「実装への引継ぎ事項」を参照。
+- §7「実装への引継ぎ事項」アイテム **8, 9** を参照し、`save_file` のエンコード引数と `read_file` の `cp932` 展開処理を必ず実装すること。
 
 ### 9.3 回帰確認観点（03観点）
 
-- 初版のため回帰確認不要。
+| # | 観点 |
+|---|------|
+| 1 | v1.0.0 で動作していた UTF-8 往復（UT-BE-05, UT-BE-08a）が引き続き正常動作すること |
+| 2 | Shift-JIS ファイルの読み込みで文字化けが発生しないこと（UT-BE-06） |
+| 3 | Shift-JIS ファイルの保存後が `cp932` エンコードであること（UT-BE-08） |
+| 4 | `cp932` で表現できない文字の保存時に `ENCODE_SAVE_ERROR` が返ること（UT-BE-08b） |
 

@@ -129,6 +129,10 @@ class FileService:
             if confidence < 0.5:
                 encoding = "utf-8"
 
+            # Windows 互換: shift_jis / shift-jis → cp932 に展開
+            if encoding and encoding.lower().replace("-", "_") in ("shift_jis", "shift_jis_2004"):
+                encoding = "cp932"
+
             try:
                 content = raw.decode(encoding, errors="replace")
             except (LookupError, UnicodeDecodeError):
@@ -155,17 +159,20 @@ class FileService:
     # ファイル保存
     # ------------------------------------------------------------------
 
-    def save_file(self, file_path: str, content: str) -> str:
+    def save_file(self, file_path: str, content: str, encoding: str = "utf-8") -> str:
         """
-        ファイルを UTF-8 (BOM なし) で上書き保存する。
+        ファイルを指定エンコード (BOM なし) で上書き保存する。
+        encoding が未指定の場合は UTF-8 を使用する。
 
         Returns:
             JSON文字列: {"success": true, "data": null, "error": null}
         """
         try:
             resolved = self.validate_path(file_path)
-            resolved.write_text(content, encoding="utf-8")
+            resolved.write_text(content, encoding=encoding or "utf-8")
             return _ok(None)
+        except UnicodeEncodeError:
+            return _err("ENCODE_SAVE_ERROR")
         except PermissionError as e:
             return _err(_perm_code(e))
         except ValueError as e:
@@ -268,7 +275,7 @@ class FileService:
 _KNOWN_CODES: frozenset[str] = frozenset({
     "PATH_TRAVERSAL", "PERMISSION_DENIED", "FILE_NOT_FOUND",
     "FILE_EXISTS", "FOLDER_NOT_FOUND", "BASE_NOT_SET",
-    "ENCODING_ERROR", "UNKNOWN_ERROR",
+    "ENCODING_ERROR", "ENCODE_SAVE_ERROR", "UNKNOWN_ERROR",
 })
 
 

@@ -57,10 +57,10 @@ class BackendBridge(QObject):
     # ファイル保存
     # ------------------------------------------------------------------
 
-    @pyqtSlot(str, str, result=str)
-    def saveFile(self, file_path: str, content: str) -> str:
-        """ファイルを UTF-8 で保存し、結果を JSON で返す。"""
-        return self._fs.save_file(file_path, content)
+    @pyqtSlot(str, str, str, result=str)
+    def saveFile(self, file_path: str, content: str, encoding: str) -> str:
+        """ファイルを元のエンコードで保存し、結果を JSON で返す。"""
+        return self._fs.save_file(file_path, content, encoding)
 
     # ------------------------------------------------------------------
     # ファイル作成

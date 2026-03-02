@@ -5,10 +5,10 @@
 | 項目 | 内容 |
 |------|------|
 | 文書名 | 実装記録 |
-| 版数 | v1.0.0 |
+| 版数 | v1.1.0 |
 | 作成日 | 2026-03-02 |
 | 作成者 | GitHub Copilot（04_implementation_agent） |
-| 参照元 | `project/document/03_detailed_design.md` v1.0.0 |
+| 参照元 | `project/document/03_detailed_design.md` v1.1.0 |
 | ステータス | 承認済み（2026-03-02） |
 
 ---
@@ -19,7 +19,7 @@
 |------|------|
 | 言語 | Python 3.12 / HTML / CSS / JavaScript (ES5+) |
 | フレームワーク | PyQt6 + QWebEngineView + QWebChannel |
-| 文字コード | ソース全体 UTF-8。ファイル保存は BOM なし UTF-8 |
+| 文字コード | ソース全体 UTF-8。ファイル読み込みは chardet で自動判定（`shift_jis` → `cp932` に展開）。保存は読み込み時に検出したエンコードで書き込み（新規ファイルは UTF-8 デフォルト） |
 | ライブラリ取得 | 第三者 JS ライブラリは `setup_resources.py` で自動取得（CDN/GitHub） |
 | ディレクトリ | `project/src/` にすべての実装コードを配置 |
 
@@ -155,11 +155,11 @@ pyinstaller mdFileReader.spec
 
 | # | 確認項目 | 状態 |
 |---|----------|------|
-| 1 | 主要機能が詳細設計どおりに `project/src/` へ実装されている | ☐ 承認待ち |
-| 2 | スモークテストが全件 PASS している | ☐ 承認待ち |
-| 3 | 実装差分（対象ファイル・要点・確認結果）が記録されている | ☐ 承認待ち |
-| 4 | PyInstaller ビルド手順が記録されている | ☐ 承認待ち |
-| 5 | GitHub 使用者のレビュー承認が完了している | ☐ 承認待ち |
+| 1 | 主要機能が詳細設計どおりに `project/src/` へ実装されている | ✅ 承認済み |
+| 2 | スモークテストが全件 PASS している | ✅ 承認済み |
+| 3 | 実装差分（対象ファイル・要点・確認結果）が記録されている | ✅ 承認済み |
+| 4 | PyInstaller ビルド手順が記録されている | ✅ 承認済み |
+| 5 | GitHub 使用者のレビュー承認が完了している | ✅ 承認済み |
 
 ---
 
@@ -170,6 +170,27 @@ pyinstaller mdFileReader.spec
 | 変更種別 | 対象 | 内容 |
 |----------|------|------|
 | 新規作成 | `project/src/` 全ファイル | `03_detailed_design.md` v1.0.0 をもとに初版を実装 |
+
+---
+
+### 8.2 v1.1.0 変更内容（Shift-JIS 対応）
+
+#### 変更ファイル一覧
+
+| ファイル | 変更内容 |
+|----------|----------|
+| `file_service.py` | ① `read_file`: chardet 判定後 `shift_jis` / `shift_jis_2004` → `cp932` に正規化を追加<br>② `save_file`: シグネチャを `(file_path, content, encoding="utf-8")` に変更し、指定エンコードで保存<br>③ `UnicodeEncodeError` 時に `ENCODE_SAVE_ERROR` を返す処理を追加<br>④ `_KNOWN_CODES` に `"ENCODE_SAVE_ERROR"` を追加 |
+| `backend_bridge.py` | `saveFile` スロットを `@pyqtSlot(str, str, str, result=str)` に変更し `encoding` 引数を追加 |
+| `resources/app.js` | ① `BridgeClient.saveFile`: `encoding` 引数追加<br>② `EditorView`: `_currentEncoding` 状態変数を追加<br>③ `EditorView.load()`: `encoding` パラメータ追加・`_currentEncoding` 保持<br>④ `EditorView.save()`: `_currentEncoding` を `BridgeClient.saveFile()` に渡す<br>⑤ `EditorView.clear()`: `_currentEncoding = "utf-8"` リセット追加<br>⑥ `EditorView.getCurrentEncoding()` を公開<br>⑦ `TreeView._onFileClick()`: `res.data.encoding` を `EditorView.load()` に渡す<br>⑧ `TreeView` リネーム後の `load()` 呼び出しに `getCurrentEncoding()` を渡す |
+
+#### 回帰確認観点
+
+| # | 確認観点 | 確認方法 |
+|---|----------|----------|
+| 1 | UTF-8 ファイルが引き続き正常に読み書きできる | 既存 UTF-8 .md ファイルを開いて編集・保存し内容が保持されること |
+| 2 | Shift-JIS ファイルが読み込み時に文字化けしない | cp932 エンコードの .md ファイルを開き日本語が正常表示されること |
+| 3 | Shift-JIS ファイルを保存しても文字化けしない | 上記ファイルを編集・保存後、テキストエディタ（cp932）で開き正常であること |
+| 4 | UTF-8 で表現できない文字を cp932 ファイルに保存すると `ENCODE_SAVE_ERROR` が返る | 絵文字等を cp932 ファイルに入力して保存し、エラー表示されること |
 
 ### 8.2 実装上の既知制約
 
