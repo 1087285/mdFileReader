@@ -73,29 +73,25 @@ git push origin main
 ## 5.1 リリース時の追加手順（工程8）
 
 ```bash
-# ビルド環境に応じた手順
-
-# Linux / Codespace 環境でのビルド（Linux ELF binary）
-cd /workspaces/mdFileReader/project/src
-/workspaces/mdFileReader/.venv/bin/pyinstaller mdFileReader.spec
-# → project/src/dist/mdFileReader（Linux ELF, 192MB）が生成される
-
-# Windows 環境でのビルド（Windows .exe）
-# cd project\src
-# pyinstaller mdFileReader.spec
-# → dist\mdFileReader.exe が生成される
-
-# 3. リリースタグ作成・push（Linux / Codespace 側）
+# 1. リリースタグを作成して push するだけで Windows .exe が自動生成される
 git tag v1.0.0
 git push origin v1.0.0
+```
 
-# 4. GitHub Releases 作成
-# https://github.com/1087285/mdFileReader/releases/new
-# タグ: v1.0.0
-# リリースノート本文: A2_release_notes.md の v1.0.0 セクションをコピー
-# Attachments: mdFileReader.exe をアップロード
+タグを push すると `.github/workflows/build-release.yml` が自動実行され、以下が行われる：
 
-# 5. リリース URL を A1/A2 に記入してコミット・push
+| ステップ | 内容 |
+|---------|------|
+| 1 | GitHub Actions（windows-latest）で Python 3.12 セットアップ |
+| 2 | `pip install -r requirements.txt` |
+| 3 | `python setup_resources.py`（リソース配置） |
+| 4 | `pyinstaller mdFileReader.spec` → `mdFileReader.exe` 生成 |
+| 5 | GitHub Releases を自動作成し `mdFileReader.exe` をアタッチ |
+| 6 | リリースノート本文は `project/document/A2_release_notes.md` を使用 |
+
+```bash
+# 2. Releases 公開後、リリース URL を A1/A2 に記入してコミット・push
+# https://github.com/1087285/mdFileReader/releases/tag/v1.0.0
 ```
 
 ---
@@ -109,6 +105,7 @@ git push origin v1.0.0
 | 3 | コミットメッセージに「概要」「変更点」「確認結果」が含まれている |
 | 4 | `project/document/` 配下の成果物が最新化されている |
 | 5 | （リリース時）Windows 実機受入テストが全件完了している |
+| 6 | （リリース時）`.github/workflows/build-release.yml` が `main` ブランチに存在している |
 
 ---
 
@@ -117,4 +114,5 @@ git push origin v1.0.0
 | 版数 | 日付 | 変更内容 |
 |------|------|----------|
 | v1.0.0 | 2026-03-02 | 初版作成 |
+| v1.0.1 | 2026-03-02 | §5.1 を GitHub Actions 自動ビルド手順に更新 |
 

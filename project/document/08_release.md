@@ -86,8 +86,9 @@ Windows 実機での以下の作業完了後、最終 Go 判定とする。
 | リリースタグ `v1.0.0` | ⚠️ 実機受入テスト完了後に作成・push |
 | GitHub Releases 本体 | ⚠️ タグ作成後に作成 |
 | Linux 実行ファイルビルド | ✅ `project/src/dist/mdFileReader`（ELF 64-bit, 192MB）生成済み |
-| Windows `.exe` ビルド | ⚠️ Windows 実機での PyInstaller ビルドが必要 |
-| `.exe` アタッチ（GitHub Releases） | ⚠️ Windows ビルド後にアタッチ |
+| GitHub Actions ワークフロー作成 | ✅ `.github/workflows/build-release.yml` 作成済み |
+| Windows `.exe` 自動ビルド | ⚠️ `git tag vX.Y.Z && git push origin vX.Y.Z` 実行後に GitHub Actions で自動生成 |
+| `.exe` アタッチ（GitHub Releases） | ⚠️ Actions 完了後に自動アタッチ |
 | リリース URL の A1/A2 への反映 | ⚠️ Releases 作成後に記入 |
 
 ---

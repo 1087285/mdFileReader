@@ -28,10 +28,10 @@
 3. リリースノート（変更点、既知制約、確認結果）を更新する。
 4. 最終サマリに工程01〜07の確定結果を統合する。
 5. プッシュ運用ガイドの最終手順（コミット/PR説明/確認観点）を更新する。
-6. PyInstaller を使用して実行ファイル（.exe）をビルドする。
-   - `project/src/` ディレクトリへ移動し、`pyinstaller mdFileReader.spec` を実行する。
-   - ビルド成果物（`project/src/dist/` 配下の .exe）が正常に生成されていることを確認する。
-   - .exe が `project/src/dist/` に存在することをプッシュ前に必ず確認する。
+6. PyInstaller を使用して実行ファイルをビルドする。
+   - Linux / Codespace 環境では `cd project/src && pyinstaller mdFileReader.spec` を実行し、Linux 実行ファイルの生成を確認する。
+   - Windows `.exe` は `.github/workflows/build-release.yml` により、`git tag vX.Y.Z && git push origin vX.Y.Z` 実行後に GitHub Actions（windows-latest）で自動ビルド・Releases へ自動アタッチされる。
+   - `project/src/dist/` と `project/src/build/` は `.gitignore` 管理外であり、git には含めない。
 7. `README.md` と .exe 配布物の整合（起動手順・動作環境・Windows 10/11・インストール不要）を確認する。
 8. 条件付き項目（未確認環境・残存不具合）の残タスクを明記する。
 9. GitHub使用者の承認と push 実行可否の合意後、リリースタグを作成して push する。
