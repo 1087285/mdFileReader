@@ -73,13 +73,17 @@ git push origin main
 ## 5.1 リリース時の追加手順（工程8）
 
 ```bash
-# Windows 実機での操作
+# ビルド環境に応じた手順
 
-# 1. 受入テスト全件完了を確認
-# 2. PyInstaller ビルド
-cd project/src
-pyinstaller mdFileReader.spec
-# → dist/mdFileReader.exe が生成される
+# Linux / Codespace 環境でのビルド（Linux ELF binary）
+cd /workspaces/mdFileReader/project/src
+/workspaces/mdFileReader/.venv/bin/pyinstaller mdFileReader.spec
+# → project/src/dist/mdFileReader（Linux ELF, 192MB）が生成される
+
+# Windows 環境でのビルド（Windows .exe）
+# cd project\src
+# pyinstaller mdFileReader.spec
+# → dist\mdFileReader.exe が生成される
 
 # 3. リリースタグ作成・push（Linux / Codespace 側）
 git tag v1.0.0

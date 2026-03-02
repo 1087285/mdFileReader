@@ -9,7 +9,7 @@
 | 作成日 | 2026-03-02 |
 | 作成者 | GitHub Copilot（08_release_agent） |
 | 参照元 | `project/document/07_system_test.md` v1.0.0 |
-| ステータス | レビュー待ち |
+| ステータス | レビュー待ち（08工程再実行 2026-03-02） |
 
 ---
 
@@ -52,16 +52,16 @@
 
 Windows 実機での以下の作業完了後、最終 Go 判定とする。
 
-| # | タスク | 担当 |
-|---|--------|------|
-| 1 | `setup_resources.py` を実行してリソースを配置 | リリース担当者 |
-| 2 | `pyinstaller project/src/mdFileReader.spec` で `.exe` ビルド | リリース担当者 |
-| 3 | `ACC-OK-01〜10`（正常系受入テスト）全件手動確認 | リリース担当者 |
-| 4 | `ACC-NG-01〜07`（異常系受入テスト）全件手動確認（`ACC-NG-03` は pytest 確認済み） | リリース担当者 |
-| 5 | `git tag v1.0.0 && git push origin v1.0.0` 実行 | リリース担当者 |
-| 6 | GitHub Releases 本体作成・`A2_release_notes.md` の v1.0.0 セクションを本文として反映 | リリース担当者 |
-| 7 | `mdFileReader.exe` を GitHub Releases にアタッチ | リリース担当者 |
-| 8 | リリース URL を `A1_project_final_summary.md` と `A2_release_notes.md` に記入 | リリース担当者 |
+| # | タスク | 担当 | 状態 |
+|---|--------|------|------|
+| 1 | `setup_resources.py` を実行してリソースを配置 | リリース担当者 | ✅ 実行済み（リソース同梱確認済み） |
+| 2 | `pyinstaller project/src/mdFileReader.spec` で実行ファイルビルド | 08エージェント（自動） | ✅ ビルド完了（`project/src/dist/mdFileReader`、Linux ELF、192MB）⚠️ Windows .exe は Windows 実機でのビルドが必要 |
+| 3 | `ACC-OK-01〜10`（正常系受入テスト）全件手動確認 | リリース担当者 | ⚠️ 実機確認待ち |
+| 4 | `ACC-NG-01〜07`（異常系受入テスト）全件手動確認（`ACC-NG-03` は pytest 確認済み） | リリース担当者 | ⚠️ 実機確認待ち |
+| 5 | `git tag v1.0.0 && git push origin v1.0.0` 実行 | リリース担当者 | ⚠️ 実機確認後に実行 |
+| 6 | GitHub Releases 本体作成・`A2_release_notes.md` の v1.0.0 セクションを本文として反映 | リリース担当者 | ⚠️ タグ作成後に実行 |
+| 7 | `mdFileReader.exe`（Windows 実機ビルド）を GitHub Releases にアタッチ | リリース担当者 | ⚠️ Windows ビルド後に実行 |
+| 8 | リリース URL を `A1_project_final_summary.md` と `A2_release_notes.md` に記入 | リリース担当者 | ⚠️ Releases 作成後に記入 |
 
 ---
 
@@ -85,7 +85,9 @@ Windows 実機での以下の作業完了後、最終 Go 判定とする。
 |------|------|
 | リリースタグ `v1.0.0` | ⚠️ 実機受入テスト完了後に作成・push |
 | GitHub Releases 本体 | ⚠️ タグ作成後に作成 |
-| `.exe` アタッチ | ⚠️ PyInstaller ビルド後にアタッチ |
+| Linux 実行ファイルビルド | ✅ `project/src/dist/mdFileReader`（ELF 64-bit, 192MB）生成済み |
+| Windows `.exe` ビルド | ⚠️ Windows 実機での PyInstaller ビルドが必要 |
+| `.exe` アタッチ（GitHub Releases） | ⚠️ Windows ビルド後にアタッチ |
 | リリース URL の A1/A2 への反映 | ⚠️ Releases 作成後に記入 |
 
 ---
@@ -123,4 +125,6 @@ Windows 実機での以下の作業完了後、最終 Go 判定とする。
 | 新規作成 | `project/document/A1_project_final_summary.md` | プロジェクト最終サマリ v1.0.0 を初版作成 |
 | 新規作成 | `project/document/A2_release_notes.md` | リリースノート v1.0.0 を初版作成 |
 | 新規作成 | `project/document/A3_push_operation_guide.md` | push 運用ガイド v1.0.0 を初版作成 |
+| 更新 | `agent/08_release_agent.md` | PyInstaller ビルド工程（ステップ6）を追加 |
+| 更新 | 本文書（08_release.md） | 08工程再実行に伴い §5・§7・§10 を更新（2026-03-02） |
 

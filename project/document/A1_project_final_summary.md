@@ -28,12 +28,13 @@
 
 ### 条件付き承認の条件
 
-| # | 残タスク | 担当 |
-|---|---------|------|
-| 1 | Windows 実機で PyInstaller ビルド → `mdFileReader.exe` 生成 | リリース担当者 |
-| 2 | `ACC-OK-01〜10`（正常系受入テスト）全件手動確認 | リリース担当者 |
-| 3 | `ACC-NG-01〜07`（異常系受入テスト）全件手動確認（`ACC-NG-03` は pytest 確認済み） | リリース担当者 |
-| 4 | GitHub Releases 本体作成・`.exe` アタッチ | リリース担当者 |
+| # | 残タスク | 担当 | 状態 |
+|---|---------|------|------|
+| 1 | Linux 実行ファイルビルド → `project/src/dist/mdFileReader` 生成 | 08 エージェント（自動） | ✅ 完了（Linux ELF, 192MB） |
+| 2 | Windows 実機で PyInstaller ビルド → `mdFileReader.exe` 生成 | リリース担当者 | ⚠️ Windows 実機が必要 |
+| 3 | `ACC-OK-01〜10`（正常系受入テスト）全件手動確認 | リリース担当者 | ⚠️ 実機確認待ち |
+| 4 | `ACC-NG-01〜07`（異常系受入テスト）全件手動確認（`ACC-NG-03` は pytest 確認済み） | リリース担当者 | ⚠️ 実機確認待ち |
+| 5 | GitHub Releases 本体作成・Windows `.exe` アタッチ | リリース担当者 | ⚠️ Windows ビルド後に実施 |
 
 ---
 

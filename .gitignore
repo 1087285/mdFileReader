@@ -12,5 +12,9 @@ __pycache__/
 project/src/backend/output/
 project/src/backend/temporary_*.json
 
+# PyInstaller build artifacts
+project/src/build/
+project/src/dist/
+
 # Keep persistent database in Git
 !project/src/backend/database.json
