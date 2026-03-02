@@ -1,0 +1,16 @@
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Virtual environments
+.venv/
+
+# VS Code
+.vscode/
+
+# Runtime artifacts (backend)
+project/src/backend/output/
+project/src/backend/temporary_*.json
+
+# Keep persistent database in Git
+!project/src/backend/database.json
