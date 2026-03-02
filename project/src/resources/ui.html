@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>mdFileReader</title>
+  <link rel="stylesheet" href="style.css">
+  <!-- CodeMirror -->
+  <link rel="stylesheet" href="codemirror/codemirror.min.css">
+  <script src="codemirror/codemirror.min.js"></script>
+  <script src="codemirror/mode/markdown/markdown.js"></script>
+  <!-- marked.js -->
+  <script src="marked.min.js"></script>
+  <!-- QWebChannel -->
+  <script src="qwebchannel.js"></script>
+</head>
+<body>
+
+  <!-- ツールバー -->
+  <div id="toolbar">
+    <button id="btn-select-folder">📁 フォルダ選択</button>
+    <span id="current-folder-path" title="">（フォルダ未選択）</span>
+    <div id="toolbar-right">
+      <button id="btn-toggle-editor" class="active" title="エディタ表示切替">✏️ エディタ</button>
+      <button id="btn-toggle-preview" class="active" title="プレビュー表示切替">👁 プレビュー</button>
+      <button id="btn-save" title="保存 (Ctrl+S)">💾 保存</button>
+    </div>
+  </div>
+
+  <!-- メインコンテンツ -->
+  <div id="main">
+    <!-- 左ペイン: ファイルツリー -->
+    <div id="left-pane">
+      <div id="tree-container">
+        <div class="tree-placeholder">フォルダを選択してください</div>
+      </div>
+    </div>
+
+    <!-- リサイザー -->
+    <div id="resizer"></div>
+
+    <!-- 右ペイン: エディタ + プレビュー -->
+    <div id="right-pane">
+      <div id="editor-container">
+        <textarea id="editor"></textarea>
+      </div>
+      <div id="divider" class="hidden"></div>
+      <div id="preview-container" class="hidden"></div>
+    </div>
+  </div>
+
+  <!-- ステータスバー -->
+  <div id="status-bar">
+    <span id="status-message"></span>
+  </div>
+
+  <!-- コンテキストメニュー -->
+  <ul id="context-menu" class="hidden">
+    <li id="ctx-new-file">📄 新規ファイル</li>
+    <li id="ctx-new-folder">📁 新規フォルダ</li>
+    <li class="separator"></li>
+    <li id="ctx-rename">✏️ 名前変更</li>
+    <li id="ctx-delete">🗑 削除</li>
+  </ul>
+
+  <script src="app.js"></script>
+</body>
+</html>

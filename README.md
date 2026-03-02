@@ -1,50 +1,112 @@
-# topDownTest
+# mdFileReader
 
-機能安全業務における単体評価テスト結果の紐づけアプリ開発用リポジトリです。
+Markdown ファイル（`.md`）の**表示・編集・保存**ができるスタンドアロンデスクトップアプリケーションです。
 
-利用者向けの実行手順は [HOWTOUSE.md](HOWTOUSE.md) を参照してください。
+- Windows 10 / 11 上で `.exe` をダブルクリックするだけで起動（インストール不要）
+- Python / 開発環境の知識なしに利用可能
+- CodeMirror によるシンタックスハイライト付き Markdown エディタ
+- marked.js によるリアルタイム Markdown プレビュー
+- 完全ローカル動作（外部サーバー・ネットワーク接続不要）
 
-## フォルダ構成
+---
 
-- [requests](requests) : 議事録（`minutes_v*.md` を版管理、最新版を入力に使用）
+## 動作環境
+
+| 項目 | 要件 |
+|------|------|
+| OS | Windows 10 / Windows 11 |
+| 配布形式 | PyInstaller 生成 `.exe` 単一ファイル |
+| インストール | 不要（任意のフォルダに配置して実行） |
+| ネットワーク | 不要（完全ローカル動作） |
+
+---
+
+## 起動方法（エンドユーザー向け）
+
+1. `mdFileReader.exe` を任意のフォルダに配置する
+2. ダブルクリックして起動する
+3. ツールバーの **「フォルダ選択」** ボタンを押して、Markdown ファイルが入ったフォルダを選択する
+4. 左ペインのツリーからファイルをクリックして開く
+5. 編集後は **「保存」** ボタン または **`Ctrl+S`** で保存する
+
+---
+
+## 機能一覧
+
+| 機能 | 説明 |
+|------|------|
+| ファイルツリー表示 | 選択フォルダ配下の `.md` ファイルを左ペインにツリー表示 |
+| Markdown エディタ | CodeMirror によるシンタックスハイライト付きエディタ |
+| リアルタイムプレビュー | marked.js による Markdown → HTML プレビュー |
+| エディタ/プレビュー切替 | ツールバーのトグルボタンで表示/非表示を切替 |
+| 保存 | 保存ボタン / `Ctrl+S` で UTF-8（BOM なし）保存 |
+| 新規ファイル作成 | ツリー右クリック → 「新規ファイル」 |
+| ファイル削除 | ツリー右クリック → 「削除」（確認ダイアログあり） |
+| 名前変更 | ツリー右クリック → 「名前変更」 |
+| 文字コード自動判定 | UTF-8 / Shift-JIS 等を自動判定して読み込み |
+
+---
+
+## 既知の制約（v1.0.0）
+
+- フォルダ作成は `.gitkeep` ファイル経由（`createFolder` スロット未実装）
+- GUI 動作確認は Windows 実機が必要（Linux / macOS 非対応）
+
+---
+
+## 開発者向け情報
+
+### フォルダ構成
+
+- [requests](requests) : 議事録（`minutes_v*.md`）
 - [agent](agent) : エージェント定義
-- [prompt](prompt) : プロンプト定義
 - [skills](skills) : スキル定義
-- [project/document](project/document) : 工程成果物（要件定義・設計など）
-- [project/src/frontend](project/src/frontend) : フロントエンド（PHP）
-- [project/src/backend](project/src/backend) : バックエンド（Python）
-- [project/src/test](project/src/test) : テスト関連
+- [project/document](project/document) : 工程成果物（要件定義〜リリース）
+- [project/src](project/src) : ソースコード（Python / HTML / CSS / JS）
+- [project/test](project/test) : pytest テストコード
 
-## 使い方（開発開始時）
+### 開発環境セットアップ
 
-1. [requests](requests) 配下の `minutes_v*.md` から版数が最大のファイル（最新版）を参照して工程の対象と成果物を確認する
-2. 工程に応じた md ファイルを [project/document](project/document) に作成する
-   - 要件定義: `01_****.md`
-   - 基本設計: `02_****.md`
-   - 詳細設計: `03_****.md`
-3. 実装は [project/src/frontend](project/src/frontend) と [project/src/backend](project/src/backend) に分けて進める
-4. 評価結果は [project/src/test](project/src/test) に整理する
+```bash
+# Python 仮想環境作成
+python -m venv .venv
+source .venv/bin/activate   # Windows: .venv\Scripts\activate
 
-## 文書命名ルール
+# 依存パッケージインストール
+pip install -r project/src/requirements.txt
 
-- 基本の工程文書は `01`〜`07` の接頭辞を使用する（例: `01_****.md`〜`07_****.md`）
-- 特殊用途のチェックリストは英数字接頭辞を使用する
-   - 工程承認チェックリスト: [project/document/A0_phase_approval_checklist.md](project/document/A0_phase_approval_checklist.md)
-   - デプロイ確認チェックリスト: [project/document/Z0_deploy_checklist_windows_xampp.md](project/document/Z0_deploy_checklist_windows_xampp.md)
+# JS リソースのダウンロード（初回のみ）
+python project/src/setup_resources.py
 
-## Git運用ルール
+# 開発用起動
+python project/src/main.py
+```
 
-- プッシュ時に記載する更新内容（コミットメッセージ・PR説明・変更履歴）は日本語で記載する。
-- 更新内容は「概要」「変更点」「確認結果」が分かる形式で記載する。
+### PyInstaller ビルド（Windows 実機）
 
-### コミットテンプレート
+```bash
+# Windows 実機で実行すること
+pip install pyinstaller
 
-- テンプレートファイル: [.gitmessage_ja.txt](.gitmessage_ja.txt)
-- 設定コマンド（リポジトリ単位）:
-   - `git config commit.template .gitmessage_ja.txt`
-- 設定後は `git commit` 実行時に、同じ構成（概要/変更点/確認結果）で文面を作成できる。
+cd project/src
+python setup_resources.py   # リソースが未配置の場合
+pyinstaller mdFileReader.spec
+# dist/mdFileReader.exe が生成される
+```
 
-## project/document 一覧
+### テスト実行
+
+```bash
+pip install pytest
+pytest project/test/ -v
+```
+
+### Git 運用ルール
+
+- プッシュ時の更新内容（コミットメッセージ・PR説明）は日本語で記載する
+- 更新内容は「概要」「変更点」「確認結果」が分かる形式で記載する
+
+### 工程成果物 一覧
 
 - [project/document/01_requirements.md](project/document/01_requirements.md)
 - [project/document/02_basic_design.md](project/document/02_basic_design.md)
@@ -53,10 +115,7 @@
 - [project/document/05_unit_test.md](project/document/05_unit_test.md)
 - [project/document/06_integration_test.md](project/document/06_integration_test.md)
 - [project/document/07_system_test.md](project/document/07_system_test.md)
-- [project/document/A0_phase_approval_checklist.md](project/document/A0_phase_approval_checklist.md)
-- [project/document/A2_release_notes.md](project/document/A2_release_notes.md)
-- [project/document/A3_push_operation_guide.md](project/document/A3_push_operation_guide.md)
-- [project/document/Z0_deploy_checklist_windows_xampp.md](project/document/Z0_deploy_checklist_windows_xampp.md)
+- [project/document/08_release.md](project/document/08_release.md)
 
 ## アプリ実行（ひな形）
 

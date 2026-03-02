@@ -1,73 +1,116 @@
-# A3 プッシュ運用ガイド（毎回更新・雛形使用必須）
+# A3 プッシュ運用ガイド
 
 ## 1. 文書情報
-- 文書名: プッシュ運用ガイド
-- プロジェクト名: topDownTest
-- 初版作成日: 2026-02-25
-- 最終更新日: 2026-03-02
-- 作成者: GitHub Copilot
-- 版数: v1.2
-- 文書種別: 継続更新（Living Document / Mandatory Template Use）
+
+| 項目 | 内容 |
+|------|------|
+| 文書名 | プッシュ運用ガイド |
+| 版数 | v1.0.0 |
+| 作成日 | 2026-03-02 |
+| 作成者 | GitHub Copilot（08_release_agent） |
+
+---
 
 ## 2. 目的
-- `git push` 実施時の記載品質を統一し、変更内容の追跡性を高める。
-- コミットメッセージ、PR説明、変更履歴の記載漏れを防止する。
 
-## 3. 運用ポリシー（必須）
-- プッシュ時は、**必ず雛形（テンプレート）を使用**する。
-- 雛形を使わないコミット/PR説明は「記録不備」として扱う。
-- 変更がある場合は、`A2_release_notes.md` を同時更新してからプッシュする。
+ソースコード・成果物の GitHub push / リリースタグ作成を安全に行うための手順を定める。
 
-## 4. 使用する雛形
-### 4.1 コミットメッセージ雛形（必須）
-- ファイル: `.gitmessage_ja.txt`
-- 設定コマンド:
-  - `git config commit.template .gitmessage_ja.txt`
-- 雛形項目:
-  - 件名
-  - 概要
-  - 変更点
-  - 確認結果
+---
 
-### 4.2 PR説明雛形（推奨）
-以下の構成で記載する。
+## 3. 運用ポリシー
 
-- 概要:
-- 変更点:
-  - 
-- 確認結果:
-  - 
-- 影響範囲:
-  - 
-- 残課題/注意事項:
-  - 
+| # | ポリシー |
+|---|----------|
+| 1 | コミットメッセージ・PR 説明は日本語で記載する |
+| 2 | 更新内容は「概要」「変更点」「確認結果」の 3 項目を必ず記載する |
+| 3 | push 前に `pytest project/test/ -v` を実行し全 PASS を確認する |
+| 4 | リリースタグ（`vX.Y.Z`）は工程8 完了後にのみ作成する |
 
-## 5. プッシュ手順（標準）
-1. 変更ファイルを確認する（コード/文書/評価結果）。
-2. `A2_release_notes.md` に変更エントリを追加する。
-3. 必要に応じて `A1_project_final_summary.md` と `README.md` / `HOWTOUSE.md` を更新する。
-4. テストまたは確認コマンドを実行し、結果を記録する。
-5. 雛形を使ってコミットメッセージを作成する。
-6. プッシュ後、PR説明にも雛形構成を適用する。
+---
 
-## 5.1 08工程（リリース準備）での追加手順
-1. 07工程承認済みであることを確認する。
-2. `A1_project_final_summary.md`、`A2_release_notes.md`、`A3_push_operation_guide.md` を同一更新単位で反映する。
-3. `HOWTOUSE.md` と `Z0_deploy_checklist_windows_xampp.md` の整合を確認する。
-4. 出荷判定（Go / Conditional Go / No-Go）と条件付き項目を文書に明記する。
+## 4. コミットメッセージ雛形
 
-## 6. プッシュ前チェックリスト
-- [ ] 変更内容に対応する工程文書を更新した
-- [ ] `A2_release_notes.md` を更新した
-- [ ] 08工程実施時は `A1_project_final_summary.md` と `A3_push_operation_guide.md` も同時更新した
-- [ ] `HOWTOUSE.md` とデプロイ手順（`Z0`）の整合を確認した
-- [ ] 主要確認結果（テスト/コマンド）を取得した
-- [ ] `.gitmessage_ja.txt` の雛形でコミット文を作成した
-- [ ] PR説明に雛形構成（概要/変更点/確認結果/影響範囲/残課題）を適用した
+```
+[概要]
+
+〇〇の実装 / 〇〇工程の完了 / バグ修正: 〇〇
+
+[変更点]
+- project/src/file_service.py: PermissionError 正規化対応
+- project/test/test_file_service.py: pytest 22ケース追加
+- project/document/05_unit_test.md: 単体評価記録を作成
+
+[確認結果]
+- pytest project/test/ -v: 41 / 41 PASS
+- Python 構文チェック: 全ファイル OK
+```
+
+---
+
+## 5. 標準 push 手順
+
+```bash
+# 1. 差分確認
+git status
+git diff
+
+# 2. テスト実行
+cd /workspaces/mdFileReader
+.venv/bin/pytest project/test/ -v
+
+# 3. ステージング
+git add -A
+
+# 4. コミット（雛形を使用）
+git commit
+
+# 5. プッシュ
+git push origin main
+```
+
+---
+
+## 5.1 リリース時の追加手順（工程8）
+
+```bash
+# Windows 実機での操作
+
+# 1. 受入テスト全件完了を確認
+# 2. PyInstaller ビルド
+cd project/src
+pyinstaller mdFileReader.spec
+# → dist/mdFileReader.exe が生成される
+
+# 3. リリースタグ作成・push（Linux / Codespace 側）
+git tag v1.0.0
+git push origin v1.0.0
+
+# 4. GitHub Releases 作成
+# https://github.com/1087285/mdFileReader/releases/new
+# タグ: v1.0.0
+# リリースノート本文: A2_release_notes.md の v1.0.0 セクションをコピー
+# Attachments: mdFileReader.exe をアップロード
+
+# 5. リリース URL を A1/A2 に記入してコミット・push
+```
+
+---
+
+## 6. push 前チェックリスト
+
+| # | 確認項目 |
+|---|----------|
+| 1 | `pytest project/test/ -v` が全 PASS |
+| 2 | `python -m py_compile project/src/*.py` で構文エラーなし |
+| 3 | コミットメッセージに「概要」「変更点」「確認結果」が含まれている |
+| 4 | `project/document/` 配下の成果物が最新化されている |
+| 5 | （リリース時）Windows 実機受入テストが全件完了している |
+
+---
 
 ## 7. 更新履歴
-| 版数 | 日付 | 変更内容 | 変更理由 | 変更者 |
-|---|---|---|---|---|
-| v1.2 | 2026-03-02 | v150反映時の運用として「評価証跡更新後はA1/A2/A3/08を同一更新単位で整合し、push・タグ作成は明示合意後に実施」を追記 | 08工程の実施順序と合意ポイントを明確化するため | GitHub Copilot |
-| v1.1 | 2026-03-02 | 08工程（リリース準備）向けにA1/A2/A3同時更新手順、HOWTOUSE整合チェック、出荷判定明記手順を追加 | v140反映後の最終運用フローを標準化するため | GitHub Copilot |
-| v1.0 | 2026-02-25 | 初版作成 | プッシュ時ドキュメント運用と雛形使用を標準化するため | GitHub Copilot |
+
+| 版数 | 日付 | 変更内容 |
+|------|------|----------|
+| v1.0.0 | 2026-03-02 | 初版作成 |
+

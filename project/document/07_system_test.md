@@ -1,103 +1,218 @@
 # 07 システム評価
 
 ## 1. 文書情報
-- 文書名: システム評価記録
-- プロジェクト名: topDownTest
-- 作成日: 2026-03-02
-- 作成者: GitHub Copilot
-- 版数: v1.7
+
+| 項目 | 内容 |
+|------|------|
+| 文書名 | システム評価報告書 |
+| 版数 | v1.0.0 |
+| 作成日 | 2026-03-02 |
+| 作成者 | GitHub Copilot（07_system_test_agent） |
+| 参照元 | `project/document/01_requirements.md` v1.0.0, `project/document/06_integration_test.md` v1.0.0 |
+| ステータス | 承認済み（2026-03-02） |
+
+---
 
 ## 2. 目的
-要件（`requests/minutes_v*.md` のうち版数が最大のファイル および `01_requirements.md`）に対して、E2Eで成立することを確認する。
+
+要件定義書（01）に記載されたすべての要件が実装されているかを最終評価し、リリース可否を判定する。
+
+---
 
 ## 3. 評価観点
-- 入力: フォルダパス/メールアドレス
-- UI: 確認ダイアログ、OK/キャンセル挙動
-- 処理: iファイル探索、抽出、正規化、一致判定
-- 文字コード: UTF-8/Shift-JIS（Windows-31J/CP932）受理と内部UTF-8正規化
-- 出力: `result.csv`、集約コピー先フォルダ（`copied_results` または連番付き）（ユーザ指定パスと同一階層配置）
-- 通知: SMTP設定時の送信、未設定時の安全なスキップ
-- 異常: 標準エラーJSON返却
-- 利用手順: `HOWTOUSE.md` の運用整合
 
-## 4. 実施結果
-- システム評価結果: `project/src/test/07_system_result.md`
+| 評価区分 | 対象 | 実施方法 |
+|---------|------|---------|
+| Python 層機能確認 | REQ-PROC-01〜10、REQ-PROC-12 | 自動（pytest 単体・結合テスト） |
+| GUI / E2E 確認 | REQ-IN-01〜04、REQ-OUT-01〜05、REQ-UI-01〜08、REQ-OPS-01〜04、REQ-PROC-11 | 手動（Windows 実機） |
+| 受入テスト | ACC-OK-01〜10、ACC-NG-01〜07 | 手動（Windows 実機） |
 
-## 5. 判定
-- 重大不具合なし。要件に対してリリース判定は「条件付きOK」。
-- 条件: 本番SMTP設定およびWindows Server 2019 / XAMPP環境での最終現地確認を実施すること。
+---
 
-## 5.3 再実施記録（2026-03-02 / v140追従）
-- 実行内容:
-	- `python3 app.py --input-path ../test/sample_input --email test@example.com`（2回連続実行）
-	- `python3 app.py --input-path ../test/not_found_path --email test@example.com`
-	- `python3 app.py --input-path ../test/sample_input_empty --email test@example.com`
-	- `python3 app.py --input-path ../test/sample_input --email invalid-mail`
-	- `python3 project/src/test/run_json_tests.py`
-- 実行結果:
-	- 正常系: `status=ok`（`copied_dir=/workspaces/topDownTest/project/src/test/copied_results_2` / `copied_results_3`）
-	- 異常系: `INPUT_PATH_NOT_FOUND`, `I_FILE_NOT_FOUND`, `INVALID_EMAIL` を確認
-	- JSONケース: 5/5 OK（`INVALID_ENCODING` 含む）
-- 判定:
-	- 同名フォルダ衝突時に連番付きフォルダへ出力され、既存フォルダが上書きされないことを確認。
-	- 利用手順参照先を `HOWTOUSE.md` とする要件との整合を確認。
+## 4. 要件トレーサビリティ
 
-## 5.1 再実施記録（2026-02-26）
-- 実行内容: 正常系1件、異常系4件（`INPUT_PATH_NOT_FOUND` / `I_FILE_NOT_FOUND` / `INVALID_EMAIL` / `INVALID_ENCODING`）を順次再実行
-- 実行結果: 正常系 `status=ok`、異常系4件は期待どおり `status=error` を返却
-- 判定: 要件トレーサビリティ判定を維持し、リリース判定は引き続き「条件付きOK」
+### 4.1 入力要件
 
-## 5.2 再実施記録（2026-02-26 追補）
-- 実行内容:
-	- `/usr/bin/python3 app.py --input-path ../test/sample_input --email test@example.com`
-	- `/usr/bin/python3 app.py --input-path ../test/not_found_path --email test@example.com`
-	- `/usr/bin/python3 app.py --input-path ../test/sample_input_empty --email test@example.com`
-	- `/usr/bin/python3 app.py --input-path ../test/sample_input --email invalid-mail`
-	- `/usr/bin/python3 project/src/test/run_json_tests.py`
-	- `php -S 127.0.0.1:18082 -t project/src/frontend` + `curl` POST による不正パス画面表示確認
-- 実行結果:
-	- 正常系: `status=ok`（`run_id=20260226_061624_125517`）
-	- 異常系: `INPUT_PATH_NOT_FOUND`（`run_id=20260226_061632_577177`）、`I_FILE_NOT_FOUND`（`run_id=20260226_061632_696934`）、`INVALID_EMAIL`（`run_id=20260226_061632_824296`）
-	- JSONケース: 5/5 OK（`INVALID_ENCODING` を含む）
-	- フロントHTTP確認: `SYS_FE_INVALID_PATH_OK`
-- 判定: 04〜06工程の更新内容を含め、要件トレーサビリティ判定は維持（差異なし）
+| 要件ID | 要件名 | pytest 証跡 | 実機確認 | 判定 |
+|--------|--------|------------|---------|------|
+| REQ-IN-01 | フォルダ指定 | — | IT-09d / ACC-OK-01 | ⚠️ 手動確認要 |
+| REQ-IN-02 | ファイル選択 | — | ACC-OK-02 | ⚠️ 手動確認要 |
+| REQ-IN-03 | テキスト入力 | — | ACC-OK-03 | ⚠️ 手動確認要 |
+| REQ-IN-04 | 保存操作 | — | ACC-OK-04, ACC-OK-05 | ⚠️ 手動確認要 |
 
-## 6. 工程ゲート（完了承認確認）
-- システム評価成果物を作成後、GitHub使用者へレビュー確認を依頼する。
-- 承認された場合にプロジェクト完了とする。
-- 未承認の場合は07工程で修正し、再レビューを実施する。
-- レビュー時は [A0 工程承認チェックリスト](A0_phase_approval_checklist.md) を参照する。
-- 07_system_test.md の更新要否判断は `agent/07_system_test_agent.md` を唯一の起点とし、差分がない場合は更新しない。
+### 4.2 処理要件
 
-## 7. 再実施記録（2026-02-26 / 06工程後追補）
-- 実行内容:
-	- `/usr/bin/python3 app.py --input-path ../test/sample_input --email test@example.com`
-	- `/usr/bin/python3 app.py --input-path ../test/not_found_path --email test@example.com`
-	- `/usr/bin/python3 project/src/test/run_json_tests.py`
-	- `php -S 127.0.0.1:18082 -t project/src/frontend` + `curl` POST（不正パス表示確認）
-- 実行結果:
-	- 正常系: `status=ok`（`run_id=20260226_070600_302453`）
-	- 異常系: `INPUT_PATH_NOT_FOUND`（`run_id=20260226_070603_425990`）
-	- JSONケース: 5/5 OK（`INVALID_ENCODING` を含む）
-	- フロントHTTP確認: `SYS_FE_INVALID_PATH_OK`
-- 判定:
-	- 05/06工程での更新（`index.php` と `app.js` 分離、JSテスト追従）反映後も、要件トレーサビリティ判定に差異なし。
-	- リリース判定は引き続き「条件付きOK」。
+| 要件ID | 要件名 | pytest 証跡 | 実機確認 | 判定 |
+|--------|--------|------------|---------|------|
+| REQ-PROC-01 | ツリー取得 | UT-BE-03/04, IT-01 | — | ✅ 確認済み |
+| REQ-PROC-02 | パスバリデーション | UT-BE-01/02, IT-07 × 5 | — | ✅ 確認済み |
+| REQ-PROC-03 | 読み込み | UT-BE-05/07, IT-02 | — | ✅ 確認済み |
+| REQ-PROC-04 | 文字コード自動判定 | UT-BE-06 | — | ✅ 確認済み |
+| REQ-PROC-05 | 上書き保存 | UT-BE-08, IT-03 | — | ✅ 確認済み |
+| REQ-PROC-06 | BOM なし UTF-8 | UT-BE-08（BOM バイト検証） | — | ✅ 確認済み |
+| REQ-PROC-07 | 新規ファイル作成 | UT-BE-10/11, IT-04, IT-08 | — | ✅ 確認済み |
+| REQ-PROC-08 | ファイル削除 | UT-BE-12/13, IT-05, IT-08 | — | ✅ 確認済み |
+| REQ-PROC-09 | 名前変更 | UT-BE-14/15, IT-06, IT-08 | — | ✅ 確認済み |
+| REQ-PROC-10 | フォルダ外アクセス禁止 | UT-BE-02, IT-07 × 5 | — | ✅ 確認済み |
+| REQ-PROC-11 | QWebChannel 連携 | — | IT-09a〜d | ⚠️ 手動確認要 |
+| REQ-PROC-12 | HTTP サーバー不使用 | コードレビュー（Flask 等不使用確認済み） | — | ✅ 確認済み |
 
-## 8. 再実施記録（2026-03-02 / v150追従）
-- 実行内容:
-	- `/usr/bin/python3 app.py --input-path ../test/sample_input --email test@example.com`
-	- `/usr/bin/python3 app.py --input-path ../test/not_found_path --email test@example.com`
-	- `/usr/bin/python3 app.py --input-path ../test/sample_input_empty --email test@example.com`
-	- `/usr/bin/python3 app.py --input-path ../test/sample_input --email invalid-mail`
-	- `/usr/bin/python3 project/src/test/run_json_tests.py`
-	- `php -S 127.0.0.1:18083 -t project/src/frontend` + `curl --data-urlencode` による空白パスPOST
-- 実行結果:
-	- 正常系: `status=ok`（`run_id=20260302_064421_846974`、`copied_dir=/workspaces/topDownTest/project/src/test/copied_results_7`）
-	- 異常系: `INPUT_PATH_NOT_FOUND`（`run_id=20260302_064424_566200`）、`I_FILE_NOT_FOUND`（`run_id=20260302_064424_631471`）、`INVALID_EMAIL`（`run_id=20260302_064424_703950`）
-	- JSON回帰: 5/5 OK（`INVALID_ENCODING` を含む）
-	- フロントHTTP確認: `SYS_FE_SPACE_PATH_OK`
-	- フロント応答内JSON: `input_path=/workspaces/topDownTest/project/src/test/sample input space`、`result_csv=/workspaces/topDownTest/project/src/test/result.csv`、`copied_dir=/workspaces/topDownTest/project/src/test/copied_results`
-- 判定:
-	- v150追加要件（空白を含むパスの受理・連携）をシステム観点で満たす
-	- 既存要件（正常系/異常系/出力配置/エラーコード体系）に差異なし
+### 4.3 出力要件
+
+| 要件ID | 要件名 | pytest 証跡 | 実機確認 | 判定 |
+|--------|--------|------------|---------|------|
+| REQ-OUT-01 | ファイルツリー表示 | IT-01（JSON データ検証） | ACC-OK-01 | ⚠️ GUI 確認要 |
+| REQ-OUT-02 | エディタ表示 | IT-02（content 値検証） | ACC-OK-02 | ⚠️ GUI 確認要 |
+| REQ-OUT-03 | プレビュー表示 | — | ACC-OK-03 | ⚠️ 手動確認要 |
+| REQ-OUT-04 | 保存完了通知 | IT-03（success 値検証） | ACC-OK-04 | ⚠️ GUI 確認要 |
+| REQ-OUT-05 | エラー通知 | UT-BE-02/04/07/09/11/13/15（error コード検証） | ACC-NG-01〜07 | ⚠️ GUI 確認要 |
+
+### 4.4 画面要件
+
+| 要件ID | 要件名 | pytest 証跡 | 実機確認 | 判定 |
+|--------|--------|------------|---------|------|
+| REQ-UI-01 | 分割レイアウト | — | IT-10 | ⚠️ 手動確認要 |
+| REQ-UI-02 | CodeMirror エディタ | — | IT-10 | ⚠️ 手動確認要 |
+| REQ-UI-03 | プレビュー（marked.js） | — | ACC-OK-03 | ⚠️ 手動確認要 |
+| REQ-UI-04 | 表示切替トグル | — | IT-10 | ⚠️ 手動確認要 |
+| REQ-UI-05 | 保存ボタン | — | ACC-OK-05 | ⚠️ 手動確認要 |
+| REQ-UI-06 | Ctrl+S 保存 | — | ACC-OK-04 | ⚠️ 手動確認要 |
+| REQ-UI-07 | フォルダ選択ダイアログ | — | IT-09d | ⚠️ 手動確認要 |
+| REQ-UI-08 | HTML リソース同梱 | setup_resources.py 実行済み（全 JS/CSS 配置確認） | — | ✅ 確認済み |
+
+### 4.5 非機能要件（運用）
+
+| 要件ID | 要件名 | pytest 証跡 | 実機確認 | 判定 |
+|--------|--------|------------|---------|------|
+| REQ-OPS-01 | スタンドアロン動作 | REQ-PROC-12 確認済み | `.exe` 実機起動 | ⚠️ 実機確認要 |
+| REQ-OPS-02 | 即時起動 | — | `.exe` ダブルクリック起動確認 | ⚠️ 実機確認要 |
+| REQ-OPS-03 | 終了操作 | — | ウィンドウ閉じ確認 | ⚠️ 手動確認要 |
+| REQ-OPS-04 | インストール不要 | — | 任意フォルダからの起動確認 | ⚠️ 実機確認要 |
+
+### 4.6 保守要件
+
+| 要件ID | 要件名 | 状態 |
+|--------|--------|------|
+| REQ-MNT-01 | ソースコード管理 | ✅ GitHub リポジトリ `1087285/mdFileReader` で管理中 |
+| REQ-MNT-02 | README 更新 | ⚠️ リリース工程（08）で更新予定 |
+| REQ-MNT-03 | 工程成果物管理 | ✅ `project/document/01〜07` として Markdown 管理済み |
+| REQ-MNT-04 | エージェント連携 | ✅ 工程1〜7 の Markdown 成果物連携で実施済み |
+
+---
+
+## 5. 受入テスト計画（実機確認手順）
+
+> ⚠️ 以下は Windows 実機（Windows 10 / 11）で実施する手動確認手順。  
+> PyInstaller でビルドした `.exe` を使用すること。
+
+### 5.1 正常系受入テスト
+
+| 受入ID | 確認手順 | 期待結果 | 状態 |
+|--------|---------|---------|------|
+| ACC-OK-01 | アプリ起動 → フォルダ選択 → `.md` ファイルを含むフォルダを選択 | ツリーに `.md` ファイルが表示される | ⚠️ 未実施 |
+| ACC-OK-02 | ツリーのファイルをクリック | エディタとプレビューにファイル内容が表示される | ⚠️ 未実施 |
+| ACC-OK-03 | エディタで文字を入力または変更する | プレビューがリアルタイムで更新される | ⚠️ 未実施 |
+| ACC-OK-04 | 編集後に `Ctrl+S` を押す | ステータスバーに「保存しました」が 3 秒表示され、ファイルが UTF-8 で保存される | ⚠️ 未実施 |
+| ACC-OK-05 | 編集後に保存ボタンを押す | ACC-OK-04 と同等の動作 | ⚠️ 未実施 |
+| ACC-OK-06 | ツリーで右クリック → 新規ファイル → 名前入力 | 新規 `.md` ファイルが作成されツリーに反映される | ⚠️ 未実施 |
+| ACC-OK-07 | ツリーでファイルを右クリック → 削除 → 確認ダイアログで OK | ファイルが削除されツリーから消える | ⚠️ 未実施 |
+| ACC-OK-08 | ツリーでファイルを右クリック → 名前変更 → 新名前入力 | ファイル名が変更されツリーに反映される | ⚠️ 未実施 |
+| ACC-OK-09 | `.exe` ファイルをダブルクリック | インストール不要でアプリウィンドウが起動する | ⚠️ 未実施 |
+| ACC-OK-10 | Shift-JIS エンコードの `.md` ファイルをツリーから選択 | 文字化けなく内容が表示される | ⚠️ 未実施 |
+
+### 5.2 異常系受入テスト
+
+| 受入ID | 確認手順 | 期待結果 | 状態 |
+|--------|---------|---------|------|
+| ACC-NG-01 | 削除済みフォルダ（または存在しないパス）を選択した場合 | エラーメッセージが表示され、アプリがクラッシュしない | ⚠️ 未実施 |
+| ACC-NG-02 | 読み取り専用 `.md` ファイルを選択して保存を試みる | 「アクセスが拒否されました」等のエラーが表示される | ⚠️ 未実施 |
+| ACC-NG-03 | ブラウザの URL バーなどでフォルダ外パスを入力（不可操作の直接確認） | アクセスが拒否され PATH_TRAVERSAL エラーが表示される（BackendBridge でブロック済み） | ✅ pytest 確認済み（IT-07） |
+| ACC-NG-04 | 空ファイル（0 バイト）をツリーから選択 | クラッシュせずエディタが空で表示される | ⚠️ 未実施 |
+| ACC-NG-05 | ファイルを右クリック → 名前変更 → 既存ファイル名を入力 | 上書き確認ダイアログが表示される | ⚠️ 未実施 |
+| ACC-NG-06 | ファイルを編集後（未保存）に別ファイルをクリック | ステータスバーに「未保存の変更があります」が表示されたまま | ⚠️ 未実施 |
+| ACC-NG-07 | ファイルを右クリック → 削除 → 確認ダイアログでキャンセル | ファイルが削除されない | ⚠️ 未実施 |
+
+---
+
+## 6. 判定
+
+### 6.1 pytest 自動テスト判定
+
+| 区分 | ケース数 | PASS | FAIL | 判定 |
+|------|---------|------|------|------|
+| 単体テスト（UT） | 22 | 22 | 0 | ✅ OK |
+| 結合テスト（IT） | 19 | 19 | 0 | ✅ OK |
+| **合計** | **41** | **41** | **0** | **✅ OK** |
+
+### 6.2 自動テストで確認済みの要件
+
+| 確認済み要件 | 証跡 |
+|------------|------|
+| REQ-PROC-01〜10, REQ-PROC-12 | pytest 41 件 PASS |
+| REQ-UI-08（HTML リソース同梱） | setup_resources.py 実行済み（qwebchannel.js, CodeMirror, marked.min.js 配置確認） |
+| REQ-MNT-01, 03, 04 | GitHub リポジトリ・工程成果物確認済み |
+
+### 6.3 手動確認待ち要件（Windows 実機）
+
+| 要件グループ | 内容 |
+|------------|------|
+| REQ-IN-01〜04 | フォルダ指定・ファイル選択・テキスト入力・保存操作の GUI 動作 |
+| REQ-OUT-01〜05 | ツリー・エディタ・プレビュー・通知の画面表示 |
+| REQ-UI-01〜07 | レイアウト・エディタ・プレビュー・トグル・ボタン・ショートカット・ダイアログ |
+| REQ-OPS-01〜04 | スタンドアロン動作・起動・終了・インストール不要 |
+| REQ-PROC-11 | QWebChannel JS↔Python コールバック連携 |
+| ACC-OK-01〜10 | 正常系受入テスト全件 |
+| ACC-NG-01〜07（-03 除く） | 異常系受入テスト（-03 は pytest 確認済み） |
+
+### 6.4 リリース可否判定
+
+| 判定 | 条件 |
+|------|------|
+| **条件付き可** | Python 層（バックエンド全機能）: **PASS 確認済み**。Windows 実機 GUI 確認（§5.1/5.2）の完了をリリース条件とする。 |
+
+> **リリース条件:** Windows 10 または Windows 11 実機で `mdFileReader.spec` による PyInstaller ビルドを行い、§5.1（ACC-OK-01〜10）および §5.2（ACC-NG-01〜07）の手動確認が全件 OK であること。
+
+---
+
+## 7. 不具合一覧
+
+| 不具合ID | 対象 | 概要 | 状態 |
+|---------|------|------|------|
+| BUG-BE-01 | `file_service.py` | PermissionError メッセージ非正規化（工程5で発見・是正済み） | ✅ 是正済み |
+| BUG-IT-01 | `backend_bridge.py` | QFileDialog トップレベル import による headless 環境エラー（工程6で発見・是正済み） | ✅ 是正済み |
+
+---
+
+## 8. 工程ゲート（完了承認確認）
+
+| # | 確認項目 | 状態 |
+|---|----------|------|
+| 1 | 全要件に対するトレーサビリティが作成されている | ✅ 確認済み（§4） |
+| 2 | pytest 自動テスト 41 件が全 PASS している | ✅ 確認済み（§6.1） |
+| 3 | 手動確認待ち要件が明示されリリース条件として記録されている | ✅ §6.3/6.4 に記録済み |
+| 4 | 発見不具合が全て是正済みである | ✅ BUG-BE-01, BUG-IT-01 是正済み |
+| 5 | リリース工程（08）への引継ぎ事項が整理されている | ✅ §9 に記録済み |
+| 6 | GitHub 使用者のレビュー承認が完了している | ✅ 承認済み（2026-03-02） |
+
+---
+
+## 9. リリース工程への引継ぎ事項
+
+| # | 引継ぎ項目 | 詳細 |
+|---|------------|------|
+| 1 | Windows 実機確認（必須） | §5 の受入テスト全件実施後にリリース判定を確定すること |
+| 2 | PyInstaller ビルド手順 | `project/src/mdFileReader.spec` を使用してビルドする。`setup_resources.py` を事前実行すること |
+| 3 | README.md 更新 | `REQ-MNT-02` に従い、起動方法・機能説明・制約事項を README に記載すること |
+| 4 | リリースノート作成 | v1.0.0 の変更内容・制約・既知課題を記載すること |
+| 5 | 既知制約 | フォルダ作成は `.gitkeep` ファイル経由（createFolder スロット未実装）。次バージョンで追加推奨 |
+
+---
+
+## 10. 差分開発情報
+
+### 10.1 変更一覧
+
+| 変更種別 | 対象 | 内容 |
+|----------|------|------|
+| 新規作成 | 本文書全体 | `06_integration_test.md` v1.0.0 をもとに初版を新規作成 |
+

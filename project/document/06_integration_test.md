@@ -1,106 +1,131 @@
 # 06 結合評価
 
 ## 1. 文書情報
-- 文書名: 結合評価記録
-- プロジェクト名: topDownTest
-- 作成日: 2026-03-02
-- 作成者: GitHub Copilot
-- 版数: v1.7
+
+| 項目 | 内容 |
+|------|------|
+| 文書名 | 結合評価記録 |
+| 版数 | v1.0.0 |
+| 作成日 | 2026-03-02 |
+| 作成者 | GitHub Copilot（06_integration_test_agent） |
+| 参照元 | `project/document/02_basic_design.md` v1.0.0, `project/document/05_unit_test.md` v1.0.0 |
+| ステータス | 承認済み（2026-03-02） |
+
+---
 
 ## 2. 目的
-基本設計どおりに、フロントエンド/バックエンド/出力生成が連携することを確認する。
+
+基本設計書（02）で定義したサブシステム連携が正しく動作することを評価する。  
+具体的には `BackendBridge` → `FileService` の委譲フローおよびパストラバーサルガードの連携動作を検証する。
+
+---
 
 ## 3. 実施範囲
-- 正常系: DB更新→比較実行→CSV/コピー成果物生成
-- 異常系: 入力パス不正、iファイル未検出、メール不正、文字コード不正
-- 配置要件: `result.csv` と集約コピーがユーザ指定パスと同一階層へ出力されること
-- 衝突回避要件: 集約コピー先フォルダが同名の場合は連番付きフォルダ（`copied_results_1` など）へ出力されること
-- 運用文書要件: 利用手順文書は `HOWTOUSE.md` を参照すること
 
-## 4. 実施結果
-- 正常系結果: `project/src/test/06_integration_result.md`
-- 異常系結果: `project/src/test/06_integration_abnormal_result.md`
+| 評価区分 | 範囲 | 実施方法 |
+|---------|------|---------|
+| Python 層 E2E（IT-01〜IT-08） | BackendBridge + FileService の統合呼び出し | 自動（pytest） |
+| QWebChannel 連携（IT-09） | JS BridgeClient ↔ BackendBridge のメソッド呼び出し・コールバック | 手動（Windows 実機） |
+| 完全 E2E フロー（IT-10） | フォルダ選択→ツリー表示→編集→保存の全画面フロー | 手動（Windows 実機） |
+
+---
+
+## 4. 実施方法
+
+| 項目 | 内容 |
+|------|------|
+| テストフレームワーク | pytest 9.0.2 |
+| Python バージョン | Python 3.12.3 (venv) |
+| テストファイル | `project/test/test_integration.py` |
+| 実行コマンド | `.venv/bin/pytest project/test/test_integration.py -v` |
+| IT-09〜10 | Windows 実機 GUI 手動確認 |
+
+---
 
 ## 5. 判定
-- 正常系・異常系とも期待どおり。
-- 追加した文字コード異常ケース（`INVALID_ENCODING`）も期待どおり。
-- 同名フォルダ衝突時の連番出力（`copied_results_1`）も期待どおり。
-- システム評価へ進行可能。
 
-## 5.3 再実施記録（2026-03-02 / v140追従）
-- 実行内容:
-	- `python3 update_database.py --server-root ../test/sample_internal_server --database database.json`
-	- `python3 app.py --input-path ../test/sample_input --email test@example.com`
-	- `python3 app.py --input-path ../test/sample_input --email test@example.com`（連続実行で同名衝突確認）
-	- `python3 app.py --input-path ../test/not_found_path --email test@example.com`
-	- `python3 app.py --input-path ../test/sample_input_empty --email test@example.com`
-	- `python3 app.py --input-path ../test/sample_input --email invalid-mail`
-	- `python3 project/src/test/run_json_tests.py --case-id 005_invalid_encoding`
-- 実行結果:
-	- 正常系1回目: `status=ok`, `copied_dir=/workspaces/topDownTest/project/src/test/copied_results`
-	- 正常系2回目: `status=ok`, `copied_dir=/workspaces/topDownTest/project/src/test/copied_results_1`
-	- 異常系: `INPUT_PATH_NOT_FOUND`, `I_FILE_NOT_FOUND`, `INVALID_EMAIL`, `INVALID_ENCODING` を期待どおり確認
-- 判定:
-	- フロント→バックエンド→出力生成→異常応答の結合動作は維持
-	- v140追加要件（同名衝突時の連番回避）を満たす
-	- 利用手順の参照先として `HOWTOUSE.md` を確認済み
+### 5.1 自動テスト結果（IT-01〜IT-08）
 
-## 8. 再実施記録（2026-03-02 / v150追従）
-- 実行内容:
-	- `python3 update_database.py --server-root ../test/sample_internal_server --database database.json`
-	- `python3 app.py --input-path ../test/sample_input --email test@example.com`
-	- `python3 app.py --input-path ../test/not_found_path --email test@example.com`
-	- `python3 app.py --input-path ../test/sample_input_empty --email test@example.com`
-	- `python3 app.py --input-path ../test/sample_input --email invalid-mail`
-	- `php -S 127.0.0.1:18082 -t project/src/frontend` + `curl --data-urlencode` による空白パスPOST
-- 実行結果:
-	- 正常系: `status=ok`, `matched_count=1`, `total_count=2`, `copied_dir=/workspaces/topDownTest/project/src/test/copied_results_5`
-	- 異常系: `INPUT_PATH_NOT_FOUND`, `I_FILE_NOT_FOUND`, `INVALID_EMAIL` を期待どおり確認
-	- フロントHTTP確認: `FE_SPACE_PATH_OK`
-	- フロント応答内JSON: `input_path=/workspaces/topDownTest/project/src/test/sample input space`、`result_csv=/workspaces/topDownTest/project/src/test/result.csv`、`copied_dir=/workspaces/topDownTest/project/src/test/copied_results_6`
-- 判定:
-	- v150追加要件（空白を含むパスの受理・連携）を結合観点で満たす
-	- 既存の正常系/異常系連携動作に影響なし
+| テストID | 観点 | 区分 | 実績 |
+|---------|------|------|------|
+| IT-01 | BackendBridge.getTree → ツリー JSON が返る | 正常 | ✅ PASS |
+| IT-01 | BackendBridge.getTree → 非存在フォルダは FOLDER_NOT_FOUND | 異常 | ✅ PASS |
+| IT-02 | BackendBridge.readFile → ファイル内容・パスが返る | 正常 | ✅ PASS |
+| IT-02 | BackendBridge.readFile → 非存在ファイルは FILE_NOT_FOUND | 異常 | ✅ PASS |
+| IT-02 | BackendBridge.readFile → フォルダ外アクセスは PATH_TRAVERSAL | 異常 | ✅ PASS |
+| IT-03 | BackendBridge.saveFile → ファイル内容が更新される | 正常 | ✅ PASS |
+| IT-03 | BackendBridge.saveFile → 新規ファイルへの保存が可能 | 正常 | ✅ PASS |
+| IT-04 | BackendBridge.createFile → 空ファイルが作成される | 正常 | ✅ PASS |
+| IT-04 | BackendBridge.createFile → 重複ファイルは FILE_EXISTS | 異常 | ✅ PASS |
+| IT-05 | BackendBridge.deleteFile → ファイルが削除される | 正常 | ✅ PASS |
+| IT-05 | BackendBridge.deleteFile → 非存在ファイルは FILE_NOT_FOUND | 異常 | ✅ PASS |
+| IT-06 | BackendBridge.renameFile → ファイル名が変更される | 正常 | ✅ PASS |
+| IT-06 | BackendBridge.renameFile → 同名移動先は FILE_EXISTS | 異常 | ✅ PASS |
+| IT-07 | readFile フォルダ外アクセスブロック | 異常 | ✅ PASS |
+| IT-07 | saveFile フォルダ外アクセスブロック | 異常 | ✅ PASS |
+| IT-07 | createFile フォルダ外アクセスブロック | 異常 | ✅ PASS |
+| IT-07 | deleteFile フォルダ外アクセスブロック | 異常 | ✅ PASS |
+| IT-07 | renameFile 移動先フォルダ外アクセスブロック | 異常 | ✅ PASS |
+| IT-08 | Python 層 E2E: 作成→読込→保存→リネーム→削除の連続操作 | 正常 | ✅ PASS |
 
-## 5.1 再実施記録（2026-02-26）
-- 実行内容: `run_json_tests.py` をケース単位（`001_normal`〜`005_invalid_encoding`）で順次実行
-- 実行結果: 5ケースすべて `status=ok`（各1/1 合格）
-- 判定: フロント→バックエンド→出力/異常応答の連携結果は前回記録と一致
+**自動テスト集計: 19 / 19 PASS（pytest、BackendBridge + FileService 統合）**
 
-## 5.2 再実施記録（2026-02-26 追補）
-- 実行内容:
-	- `/usr/bin/python3 update_database.py --server-root ../test/sample_internal_server --database database.json`
-	- `/usr/bin/python3 app.py --input-path ../test/sample_input --email test@example.com`
-	- `/usr/bin/python3 app.py --input-path ../test/not_found_path --email test@example.com`
-	- `/usr/bin/python3 app.py --input-path ../test/sample_input_empty --email test@example.com`
-	- `/usr/bin/python3 app.py --input-path ../test/sample_input --email invalid-mail`
-	- `php -S 127.0.0.1:18081 -t project/src/frontend` + `curl` POST による不正パス画面表示確認
-- 実行結果:
-	- 正常系は `status=ok`（`matched_count=1`, `total_count=2`）
-	- 異常系は `INPUT_PATH_NOT_FOUND`, `I_FILE_NOT_FOUND`, `INVALID_EMAIL` を期待どおり返却
-	- フロントHTTP確認は `FE_HTTP_INVALID_PATH_OK`
-- 判定: 04/05の更新内容を含め、06工程の連携要件を満たすことを再確認
+---
 
-## 6. 工程ゲート（次工程進行確認）
-- 結合評価成果物を作成後、GitHub使用者へレビュー確認を依頼する。
-- 承認された場合のみ07工程（システム評価）へ進行する。
-- 未承認の場合は06工程で修正し、再レビューを実施する。
-- レビュー時は [A0 工程承認チェックリスト](A0_phase_approval_checklist.md) を参照する。
-- 06_integration_test.md の更新要否判断は `agent/06_integration_test_agent.md` を唯一の起点とし、差分がない場合は更新しない。
+### 5.2 手動確認テスト（IT-09〜IT-10）
 
-## 7. 再実施記録（2026-02-26 / 04-05更新追従）
-- 正常系（DB更新→比較実行）
-	- `update_database.py` 実行後、`app.py --input-path ../test/sample_input --email test@example.com` を実施
-	- 結果: `status=ok`, `matched_count=1`, `total_count=2`
-- 異常系（個別実行）
-	- 入力パス不正: `INPUT_PATH_NOT_FOUND`
-	- iファイル未検出: `I_FILE_NOT_FOUND`
-	- メール形式不正: `INVALID_EMAIL`
-- 回帰スイート
-	- `project/src/test/run_json_tests.py` 実行結果: `total=5`, `passed=5`, `failed=0`
-- フロントHTTP連携
-	- `php -S 127.0.0.1:18081 -t project/src/frontend` + `curl` POST を実施
-	- 結果: `FE_HTTP_INVALID_PATH_OK`
-- 影響評価
-	- `index.php` から `app.js` へのJavaScript分離後も、フロント→バックエンド→異常表示の結合動作は維持
-	- 出力配置要件（`result.csv` / `copied_results` 同一階層配置）に影響なし
+> ⚠️ `QWebChannel` + JavaScript DOM 操作は GUI 実機が必要なため Linux devcontainer では実行不可。  
+> Windows 実機での手動確認が必要。
+
+| テストID | 確認手順 | 期待結果 | 状態 |
+|---------|---------|---------|------|
+| IT-09a | アプリ起動 → JS `backend.getTree(path, cb)` がコールバックで JSON を受信する | `cb` が呼ばれ `res.success === true` でツリーデータが届く | ⚠️ 未実施 |
+| IT-09b | アプリ起動 → JS `backend.readFile(path, cb)` がコールバックで内容を受信する | `res.data.content` にファイル内容が含まれる | ⚠️ 未実施 |
+| IT-09c | アプリ起動 → JS `backend.saveFile(path, content, cb)` がコールバックで成功を返す | `res.success === true` かつファイルが更新される | ⚠️ 未実施 |
+| IT-09d | アプリ起動 → JS `backend.selectFolder(cb)` でフォルダ選択ダイアログが開く | `cb` が選択パス文字列で呼ばれる | ⚠️ 未実施 |
+| IT-10 | アプリ起動 → フォルダ選択 → ツリー表示 → ファイルをクリック → 編集 → Ctrl+S → ステータスバー確認 | ツリー描画・エディタ表示・保存成功メッセージが正常に動作する | ⚠️ 未実施 |
+
+---
+
+## 6. 不具合一覧
+
+| 不具合ID | 対象 | 概要 | 原因工程 | 是正内容 | 状態 |
+|---------|------|------|---------|---------|------|
+| BUG-IT-01 | `backend_bridge.py` | `from PyQt6.QtWidgets import QFileDialog` のトップレベル import が `libGL.so.1` 依存のため headless 環境でインポートエラー | 工程4（実装） | `selectFolder` メソッド内に遅延 import（`from PyQt6.QtWidgets import QFileDialog`）へ変更 | ✅ 是正済み |
+
+---
+
+## 7. 工程ゲート（次工程進行確認）
+
+| # | 確認項目 | 状態 |
+|---|----------|------|
+| 1 | IT-01〜IT-08 の全 pytest テストが PASS している | ✅ 確認済み（19 / 19 PASS） |
+| 2 | フォルダ外アクセスが BackendBridge 全メソッドでブロックされる | ✅ 確認済み（IT-07 × 5ケース） |
+| 3 | Python 層 E2E フロー（作成→読込→保存→リネーム→削除）が正常動作する | ✅ 確認済み（IT-08） |
+| 4 | IT-09〜IT-10 の未実施事項がシステム評価への引継ぎ事項として記録されている | ✅ §8 に記録済み |
+| 5 | 発見不具合 BUG-IT-01 が是正済みであり、是正後テストが PASS している | ✅ 確認済み |
+| 6 | GitHub 使用者のレビュー承認が完了している | ✅ 承認済み（2026-03-02） |
+
+---
+
+## 8. システム評価への引継ぎ事項
+
+| # | 引継ぎ項目 | 詳細 |
+|---|------------|------|
+| 1 | IT-09（QWebChannel 連携）未実施 | Windows 実機で JS BridgeClient → BackendBridge のコールバックフローを手動確認 |
+| 2 | IT-10（完全 E2E）未実施 | Windows 実機でフォルダ選択→ツリー→編集→保存の全画面フローを確認 |
+| 3 | selectFolder（QFileDialog）未確認 | Qt の GUI ダイアログが正しく表示・選択パスを返すことを実機で確認 |
+| 4 | PyInstaller ビルド後の動作未確認 | `.exe` 単体起動での全機能確認をシステム評価で実施 |
+
+---
+
+## 9. 差分開発情報
+
+### 9.1 変更一覧
+
+| 変更種別 | 対象 | 内容 |
+|----------|------|------|
+| 新規作成 | 本文書全体 | `05_unit_test.md` v1.0.0 をもとに初版を新規作成 |
+| バグ修正 | `project/src/backend_bridge.py` | BUG-IT-01: QFileDialog をトップレベルから `selectFolder` 内の遅延 import へ移動 |
+| 新規作成 | `project/test/test_integration.py` | pytest 結合テストファイル（19 ケース、IT-01〜IT-08） |
+
