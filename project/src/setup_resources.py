@@ -13,6 +13,11 @@ import sys
 import urllib.request
 from pathlib import Path
 
+# Windows での日本語出力対応
+if sys.platform == "win32":
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
 
 BASE = Path(__file__).parent
 RESOURCES = BASE / "resources"
