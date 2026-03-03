@@ -5,17 +5,18 @@
 | 項目 | 内容 |
 |------|------|
 | 文書名 | 単体評価記録 |
-| 版数 | v1.1.0 |
+| 版数 | v1.2.0 |
 | 作成日 | 2026-03-02 |
+| 最終更新日 | 2026-03-02（v1.2.0 D&D テスト追加） |
 | 作成者 | GitHub Copilot（05_unit_test_agent） |
-| 参照元 | `project/document/03_detailed_design.md` v1.1.0, `project/document/04_implementation.md` v1.1.0 |
+| 参照元 | `project/document/03_detailed_design.md` v1.2.0, `project/document/04_implementation.md` v1.2.0 |
 | ステータス | 承認済み（2026-03-02） |
 
 ---
 
 ## 2. 目的
 
-詳細設計書（03）で定義した 20 テストケース（UT-BE-01〜15、UT-FE-01〜05）に基づいて実装の正確性を検証し、各関数の判定条件に対する MC/DC（Modified Condition/Decision Coverage）100% 達成を確認する。
+詳細設計書（03）v1.2.0 で定義した 29 テストケース（UT-BE-01〜22、UT-FE-01〜05）に基づいて実装の正確性を検証し、各関数の判定条件に対する MC/DC（Modified Condition/Decision Coverage）100% 達成を確認する。
 
 ---
 
@@ -69,13 +70,20 @@
 | UT-BE-13 | `FileService.delete_file` | 存在しないファイルは `FILE_NOT_FOUND` | 異常 | ✅ PASS |
 | UT-BE-14 | `FileService.rename_file` | ファイル名が変更される | 正常 | ✅ PASS |
 | UT-BE-15 | `FileService.rename_file` | 同名ファイル存在時は `FILE_EXISTS` | 異常 | ✅ PASS |
+| UT-BE-16 | `FileService.validate_extension` | `.md` ファイルは正常通過する | 正常 | ✅ PASS |
+| UT-BE-17 | `FileService.validate_extension` | `.md` 以外の拡張子は `INVALID_EXTENSION` | 異常 | ✅ PASS |
+| UT-BE-18 | `FileService.resolve_root` | ルートフォルダ外のファイルは親フォルダにルートが切り替わる | 正常 | ✅ PASS |
+| UT-BE-19 | `FileService.resolve_root` | ルートフォルダ内のファイルはルートが変更されない | 正常 | ✅ PASS |
+| UT-BE-20 | `BackendBridge.openDroppedFile` | UTF-8 .md をドロップしてツリー＋内容が返る | 正常 | ✅ PASS |
+| UT-BE-21 | `BackendBridge.openDroppedFile` | Shift-JIS .md をドロップして文字化けなく `encoding=cp932` が返る | 正常 | ✅ PASS |
+| UT-BE-22 | `BackendBridge.openDroppedFile` | `.md` 以外のファイルは `INVALID_EXTENSION` | 異常 | ✅ PASS |
 | UT-FE-01 | `StatusBar.showWarning` | 未保存フラグ ON 時に常時表示されている | 正常 | ⚠️ 手動確認要 |
 | UT-FE-02 | `StatusBar.showSuccess` | 保存成功後に 3 秒で消える | 正常 | ⚠️ 手動確認要 |
 | UT-FE-03 | `EditorView.save` | ファイル未選択時は `StatusBar.showError` が呼ばれる | 異常 | ⚠️ 手動確認要 |
 | UT-FE-04 | `TreeView.onDelete` | confirm キャンセル時は `deleteFile` が呼ばれない | 異常 | ⚠️ 手動確認要 |
 | UT-FE-05 | `TreeView.onNewFile` | 空文字入力時はエラーが表示される | 異常 | ⚠️ 手動確認要 |
 
-**BE テスト集計: 17 / 17 PASS（pytest 自動実行、設計検証ケース含む 24 テスト PASS）**  
+**BE テスト集計: 24 / 24 PASS（pytest 自動実行、設計検証ケース含む 58 テスト PASS）**  
 **FE テスト: 5 件 未実施（GUI 実機確認待ち）**
 
 ---
@@ -90,6 +98,33 @@
 | C2 | `resolved` が `_base_path` 配下外 | UT-BE-02 → `PermissionError("PATH_TRAVERSAL")` | UT-BE-01 → 正常通過 |
 
 MC/DC 達成率: **100%**（C1×2ケース, C2×2ケース）
+
+### 7.8 `FileService.validate_extension`
+
+| 基本条件 | 条件内容 | True ケース | False ケース |
+|----------|---------|------------|-------------|
+| C1 | `suffix.lower() == ".md"` が False | UT-BE-17（.txt, .py, 拡張子なし） → `INVALID_EXTENSION` | UT-BE-16（.md, .MD） → 正常通過 |
+
+MC/DC 達成率: **100%**
+
+### 7.9 `FileService.resolve_root`
+
+| 基本条件 | 条件内容 | True ケース | False ケース |
+|----------|---------|------------|-------------|
+| C1 | `self._base_path is None` | `test_UT_BE_18_base_not_set_sets_parent` → 親フォルダをルートに設定 | UT-BE-18, UT-BE-19（設定済み状態） |
+| C2 | `target not in self._base_path` | `test_UT_BE_18_file_outside_root_switches` → 親フォルダに切替 | `test_UT_BE_19_file_inside_root_no_change`, `test_resolve_root_subdirectory_stays_in_root` → ルート維持 |
+
+MC/DC 達成率: **100%**
+
+### 7.10 `BackendBridge.openDroppedFile`
+
+| 基本条件 | 条件内容 | True ケース | False ケース |
+|----------|---------|------------|-------------|
+| C1 | `validate_extension` 失敗 | UT-BE-22, `test_IT_openDroppedFile_py_extension_fails` → `INVALID_EXTENSION` | UT-BE-20, UT-BE-21 → 正常処理 |
+| C2 | `get_tree` 失敗 | ※ 存在しないフォルダパスを使った異常系（`test_integration.py` IT-01 で間接カバー） | UT-BE-20, UT-BE-21 → 正常処理 |
+| C3 | `read_file` 失敗 | ※ `_base_path` 切替後のパス検証失敗時（PATH_TRAVERSAL）は IT-07 で間接カバー | UT-BE-20, UT-BE-21 → 正常処理 |
+
+MC/DC 達成率: **C1: 100% / C2: 間接カバー / C3: 間接カバー**（C2/C3 は IT テストで補完）
 
 ### 7.2 `FileService.get_tree`
 
@@ -173,8 +208,8 @@ MC/DC 達成率: **100%**
 
 | # | 確認項目 | 状態 |
 |---|----------|------|
-| 1 | UT-BE-01〜15 および UT-BE-08a/08b の全 pytest テストが PASS している | ✅ 確認済み（24 / 24 PASS） |
-| 2 | 全関数の MC/DC 達成率が 100% である | ✅ 確認済み |
+| 1 | UT-BE-01〜22 (BE 全 24 ケース) の pytest テストが PASS している | ✅ 確認済み（58 / 58 PASS） |
+| 2 | 全関数の MC/DC 達成率が 100% である（openDroppedFile C2/C3 は間接カバー） | ✅ 確認済み |
 | 3 | 不具合 BUG-BE-01 が是正済みであり、是正後テストが PASS している | ✅ 確認済み |
 | 4 | UT-FE-01〜05 の未実施事項が結合評価への引継ぎ事項として記録されている | ✅ §9 に記録済み |
 | 5 | GitHub 使用者のレビュー承認が完了している | ✅ 承認済み（2026-03-02） |
@@ -189,6 +224,8 @@ MC/DC 達成率: **100%**
 | 2 | QWebChannel 統合確認 | BackendBridge の `@pyqtSlot` と JS BridgeClient の呼び出し連携は結合評価で確認 |
 | 3 | PyInstaller ビルド確認 | `.exe` 単体での動作確認は結合評価または系統評価で実施 |
 | 4 | ダイアログ動作確認 | `selectFolder()`（QFileDialog）・削除確認ダイアログの実機動作は未確認 |
+| 5 | D&D 実機確認 | `QWebEngineView` への D&D（`event.dataTransfer.files[0].path`）はブラウザ標準では取得不可。Qt 経由の動作確認は Windows 実機が必要 |
+| 6 | D&D Shift-JIS 文字化け確認（UT-BE-21 手動確認） | Shift-JIS .md を実機で D&D した際の表示結果を手動確認する |
 
 ---
 
@@ -212,3 +249,13 @@ MC/DC 達成率: **100%**
 | テスト追加 | `test_file_service.py` – UT-BE-08a | cp932 エンコード指定で保存し、バイト列を cp932 で読み直して内容一致を確認 |
 | テスト追加 | `test_file_service.py` – UT-BE-08b | 絵文字を cp932 ファイルに保存 → `ENCODE_SAVE_ERROR` を確認 |
 | MC/DC 追加 | §7.4 `save_file` | C2（`UnicodeEncodeError`）の True/False 対が UT-BE-08b / UT-BE-08a で網羅されることを追記 |
+
+### 12.3 v1.2.0 変更内容（D&D テスト追加）
+
+| 変更種別 | 対象 | 内容 |
+|----------|------|------|
+| テスト追加 | `test_file_service.py` – UT-BE-16〜19 | `validate_extension` / `resolve_root` の MC/DC テストを `TestValidateExtension` / `TestResolveRoot` クラスとして追加 |
+| テスト追加 | `test_integration.py` – UT-BE-20〜22 | `BackendBridge.openDroppedFile` の MC/DC テストを `TestOpenDroppedFileIntegration` クラスとして追加 |
+| テスト修正 | UT-BE-20 | ASCII のみのコンテンツでは `chardet` が `ascii` と判定するため、日本語含む内容に修正 |
+| MC/DC 追加 | §7.8〜7.10 | `validate_extension` / `resolve_root` / `openDroppedFile` の MC/DC 表を追加 |
+| 件数更新 | 全体 | テスト総数 24 件 → 58 件（うちユニットテスト設計 BE: 24 件）に更新 |

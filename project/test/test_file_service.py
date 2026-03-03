@@ -1,6 +1,6 @@
 """
 test_file_service.py - FileService 単体テスト
-テストケース: UT-BE-01 〜 UT-BE-15（詳細設計書 §6.1 準拠）
+テストケース: UT-BE-01 〜 UT-BE-19（詳細設計書 §6.1 準拠）
 MC/DC観点を各関数の判定条件ごとに網羅する。
 
 実行方法:
@@ -398,3 +398,116 @@ class TestResponseFormat:
     def test_error_data_field_is_null(self, fs: FileService, base_dir: Path):
         result = _parse(fs.delete_file(str(base_dir / "ghost.md")))
         assert result["data"] is None
+
+
+# ============================================================
+# validate_extension
+# UT-BE-16: .md ファイルは正常通過する
+# UT-BE-17: .md 以外の拡張子は INVALID_EXTENSION
+# ------------------------------------------------------------
+# MC/DC観点 (validate_extension):
+#   C1: suffix.lower() == ".md" → True  → 例外なし（正常通過）
+#                                  False → ValueError("INVALID_EXTENSION")
+# ============================================================
+
+class TestValidateExtension:
+    """UT-BE-16 / UT-BE-17  validate_extension MC/DC"""
+
+    def test_UT_BE_16_md_extension_passes(self):
+        """C1=True: .md ファイルは例外を送出しない"""
+        service = FileService()
+        # 例外が発生しないことを確認
+        service.validate_extension("test.md")
+        service.validate_extension("path/to/doc.MD")   # 大文字 .MD も対応
+
+    def test_UT_BE_17_txt_extension_raises(self):
+        """C1=False (.txt): INVALID_EXTENSION を送出する"""
+        service = FileService()
+        with pytest.raises(ValueError, match="INVALID_EXTENSION"):
+            service.validate_extension("test.txt")
+
+    def test_UT_BE_17_no_extension_raises(self):
+        """C1=False (拡張子なし): INVALID_EXTENSION を送出する"""
+        service = FileService()
+        with pytest.raises(ValueError, match="INVALID_EXTENSION"):
+            service.validate_extension("README")
+
+    def test_UT_BE_17_py_extension_raises(self):
+        """C1=False (.py): INVALID_EXTENSION を送出する"""
+        service = FileService()
+        with pytest.raises(ValueError, match="INVALID_EXTENSION"):
+            service.validate_extension("script.py")
+
+
+# ============================================================
+# resolve_root
+# UT-BE-18: ルートフォルダ外のファイルは親フォルダにルートが切り替わる
+# UT-BE-19: ルートフォルダ内のファイルはルートが変更されない
+# ------------------------------------------------------------
+# MC/DC観点 (resolve_root):
+#   C1: self._base_path is None           → True  → 親フォルダをルートに設定
+#   C2: target not in self._base_path     → True  → 親フォルダにルート切替
+#   正常ケース: C1=False, C2=False（target は base_path 配下）  → ルート維持
+# ============================================================
+
+class TestResolveRoot:
+    """UT-BE-18 / UT-BE-19  resolve_root MC/DC"""
+
+    def test_UT_BE_19_file_inside_root_no_change(self, base_dir: Path):
+        """C1=False, C2=False: ルート内のファイルではルートが変更されない"""
+        service = FileService()
+        service.set_base_path(str(base_dir))
+        inner_file = base_dir / "inner.md"
+        inner_file.touch()
+
+        result = service.resolve_root(str(inner_file))
+
+        assert result == str(base_dir.resolve())
+        assert service._base_path == base_dir.resolve()
+
+    def test_UT_BE_18_file_outside_root_switches(self, tmp_path: Path):
+        """C1=False, C2=True: ルート外のファイルは親フォルダにルートが切り替わる"""
+        root_dir = tmp_path / "root"
+        root_dir.mkdir()
+        outer_dir = tmp_path / "outer"
+        outer_dir.mkdir()
+        outer_file = outer_dir / "outer.md"
+        outer_file.touch()
+
+        service = FileService()
+        service.set_base_path(str(root_dir))  # ルートを root_dir に設定
+        result = service.resolve_root(str(outer_file))
+
+        # outer_dir（outer_file の親）にルートが切り替わっているはず
+        assert result == str(outer_dir.resolve())
+        assert service._base_path == outer_dir.resolve()
+
+    def test_UT_BE_18_base_not_set_sets_parent(self, tmp_path: Path):
+        """C1=True: ベースパス未設定時は親フォルダをルートに設定する"""
+        target_dir = tmp_path / "someFolder"
+        target_dir.mkdir()
+        target_file = target_dir / "file.md"
+        target_file.touch()
+
+        service = FileService()  # base_path 未設定
+        assert service._base_path is None
+
+        result = service.resolve_root(str(target_file))
+
+        assert result == str(target_dir.resolve())
+        assert service._base_path == target_dir.resolve()
+
+    def test_resolve_root_subdirectory_stays_in_root(self, base_dir: Path):
+        """サブフォルダ内のファイルはルートが変更されない（C2=False 追加ケース）"""
+        service = FileService()
+        service.set_base_path(str(base_dir))
+        sub = base_dir / "sub"
+        sub.mkdir()
+        sub_file = sub / "doc.md"
+        sub_file.touch()
+
+        result = service.resolve_root(str(sub_file))
+
+        # ルートは base_dir のまま、sub に切り替わらないこと
+        assert result == str(base_dir.resolve())
+

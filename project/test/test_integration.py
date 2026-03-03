@@ -1,6 +1,6 @@
 """
 test_integration.py - BackendBridge + FileService 結合テスト
-テストケース: IT-01 〜 IT-08
+テストケース: IT-01 〜 IT-08、UT-BE-20〜22（openDroppedFile）
 QWebChannel 統合（JS↔Python）は GUI 実機が必要なため手動確認（IT-09, IT-10）。
 
 実行方法:
@@ -333,3 +333,119 @@ class TestE2EFlowIntegration:
         final_names = {c["name"] for c in tree_final["data"]["children"]}
         assert "e2e.md" not in final_names
         assert "e2e_renamed.md" not in final_names
+
+
+# ============================================================
+# UT-BE-20〜22: BackendBridge.openDroppedFile 統合テスト
+# ============================================================
+# MC/DC観点 (openDroppedFile):
+#   C1: validate_extension 失敗 → True  → INVALID_EXTENSION
+#   C2: get_tree 失敗           → True  → get_tree のエラーコード
+#   C3: read_file 失敗          → True  → read_file のエラーコード
+#   正常ケース: C1=False, C2=False, C3=False → {tree, fileContent} を返す
+# ============================================================
+
+class TestOpenDroppedFileIntegration:
+    """UT-BE-20〜22  BackendBridge.openDroppedFile MC/DC"""
+
+    def test_UT_BE_20_utf8_md_returns_tree_and_content(self, qt_app, tmp_path: Path):
+        """C1=False, C2=False, C3=False: UTF-8 .md をドロップしてツリー＋内容が返る"""
+        from backend_bridge import BackendBridge
+        from file_service import FileService
+
+        fs = FileService()
+        bridge = BackendBridge(fs)
+
+        target = tmp_path / "hello.md"
+        # 日本語を含めることで chardet が utf-8 と判定する
+        target.write_text("# こんにちは\nUTF-8 コンテンツ", encoding="utf-8")
+
+        result = _parse(bridge.openDroppedFile(str(target)))
+
+        assert result["success"] is True, f"Expected success, got error: {result.get('error')}"
+        assert "tree" in result["data"]
+        assert "fileContent" in result["data"]
+
+        fc = result["data"]["fileContent"]
+        assert fc["content"] == "# こんにちは\nUTF-8 コンテンツ"
+        assert fc["encoding"] == "utf-8"
+        assert fc["path"] == str(target.resolve())
+
+        # ツリーにドロップしたファイルが含まれていること
+        tree = result["data"]["tree"]
+        names = {c["name"] for c in tree["children"]}
+        assert "hello.md" in names
+
+    def test_UT_BE_21_shiftjis_md_returns_correct_encoding(self, qt_app, tmp_path: Path):
+        """C1=False: Shift-JIS .md をドロップして cp932 エンコードで文字化けなく返る"""
+        from backend_bridge import BackendBridge
+        from file_service import FileService
+
+        fs = FileService()
+        bridge = BackendBridge(fs)
+
+        content_str = "# Shift-JISテスト\n日本語テキスト"
+        target = tmp_path / "sjis.md"
+        target.write_bytes(content_str.encode("cp932"))
+
+        result = _parse(bridge.openDroppedFile(str(target)))
+
+        assert result["success"] is True
+        fc = result["data"]["fileContent"]
+        assert fc["encoding"] == "cp932", "cp932 に正規化されること"
+        assert fc["content"] == content_str, "Shift-JIS が文字化けなく返ること"
+
+    def test_UT_BE_22_non_md_returns_invalid_extension(self, qt_app, tmp_path: Path):
+        """C1=True (.txt): INVALID_EXTENSION が返る"""
+        from backend_bridge import BackendBridge
+        from file_service import FileService
+
+        fs = FileService()
+        bridge = BackendBridge(fs)
+
+        target = tmp_path / "document.txt"
+        target.write_text("text content", encoding="utf-8")
+
+        result = _parse(bridge.openDroppedFile(str(target)))
+
+        assert result["success"] is False
+        assert result["error"] == "INVALID_EXTENSION"
+
+    def test_IT_openDroppedFile_root_switches_for_external_file(self, qt_app, tmp_path: Path):
+        """ルート外ファイルをドロップするとルートが親フォルダに切り替わる"""
+        from backend_bridge import BackendBridge
+        from file_service import FileService
+
+        root_dir = tmp_path / "current_root"
+        root_dir.mkdir()
+        outer_dir = tmp_path / "outer_dir"
+        outer_dir.mkdir()
+        outer_file = outer_dir / "outer.md"
+        outer_file.write_text("# Outer", encoding="utf-8")
+
+        fs = FileService()
+        fs.set_base_path(str(root_dir))
+        bridge = BackendBridge(fs)
+
+        result = _parse(bridge.openDroppedFile(str(outer_file)))
+
+        assert result["success"] is True
+        # ルートが outer_dir に切り替わっていること
+        tree_root_path = result["data"]["tree"]["path"]
+        assert tree_root_path == str(outer_dir.resolve())
+
+    def test_IT_openDroppedFile_py_extension_fails(self, qt_app, tmp_path: Path):
+        """C1=True (.py): INVALID_EXTENSION が返る（拡張子バリデーション追加確認）"""
+        from backend_bridge import BackendBridge
+        from file_service import FileService
+
+        fs = FileService()
+        bridge = BackendBridge(fs)
+
+        target = tmp_path / "script.py"
+        target.write_text("print('hello')", encoding="utf-8")
+
+        result = _parse(bridge.openDroppedFile(str(target)))
+
+        assert result["success"] is False
+        assert result["error"] == "INVALID_EXTENSION"

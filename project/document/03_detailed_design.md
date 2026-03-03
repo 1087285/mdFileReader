@@ -5,11 +5,11 @@
 | 項目 | 内容 |
 |------|------|
 | 文書名 | 詳細設計書 |
-| 版数 | v1.1.0 |
+| 版数 | v1.2.0 |
 | 作成日 | 2026-03-02 |
-| 最終更新日 | 2026-03-02（v1.1.0 差分更新） |
+| 最終更新日 | 2026-03-02（v1.2.0 差分更新） |
 | 作成者 | GitHub Copilot（03_detailed_design_agent） |
-| 参照元 | `project/document/02_basic_design.md` v1.1.0 |
+| 参照元 | `project/document/02_basic_design.md` v1.2.0 |
 | ステータス | レビュー待ち |
 
 ---
@@ -96,6 +96,8 @@
 | `#status-bar` / `#status-message` | ステータス通知 | StatusBar |
 | `#context-menu` | 右クリックコンテキストメニュー | TreeView |
 
+> **D&D 対応:** `#right-pane` 全体（エディタ・プレビューエリア）に `dragover` / `drop` イベントリスナーを設定する。`app.js` 内の `DragDropHandler` モジュールが担当する。
+
 ### 2.2 確認ダイアログ仕様
 
 | アクション | ダイアログ種別 | メッセージ例 | キャンセル時の動作 |
@@ -134,6 +136,8 @@
 | `click` | `#ctx-delete` | `TreeView.onDelete(path)` |
 | `change` | CodeMirror instance | `EditorView.onChange()` → プレビュー更新・未保存フラグ ON |
 | `mousedown` → `mousemove` | `#resizer` | 左右ペイン幅のリサイズ |
+| `dragover` | `#right-pane` | `DragDropHandler.onDragOver(event)` → `event.preventDefault()` でブラウザデフォルトキャンセル |
+| `drop` | `#right-pane` | `DragDropHandler.onDrop(event)` → ファイルパス取得 → `BridgeClient.openDroppedFile()` 呼び出し |
 
 ### 2.6 画面遷移仕様
 
@@ -155,6 +159,16 @@
 
 [エラー発生]
   ステータスバーに赤字でエラーメッセージ表示（5秒後に消去）
+
+[D&D ドロップ]
+  .md ファイルをアプリ内にドロップ
+  → DragDropHandler から BridgeClient.openDroppedFile()
+  → Python 側で拡張子検証（.md のみ）
+  → ルートフォルダ外の場合は親フォルダをルートに自動切替
+  → chardet による文字コード自動判定（read_file と同一フロー）
+  → ツリーデータ + ファイル内容を JSON で返却
+  → TreeView 再描画 → ドロップファイルを選択状態に設定 → EditorView.load() → PreviewView.update()
+  [エラー: .md 以外] → StatusBar.showError("対応していないファイル形式です")
 ```
 
 ### 2.7 フロントエンドモジュール仕様
@@ -180,6 +194,7 @@ new QWebChannel(qt.webChannelTransport, (channel) => {
 | `getTree(folderPath)` | `folderPath: string` | フォルダ配下のツリーJSONを取得する |
 | `readFile(filePath)` | `filePath: string` | ファイル内容を読み込む |
 | `saveFile(filePath, content, encoding)` | `filePath: string`, `content: string`, `encoding: string` | ファイルを**読み込み時のエンコード**で保存する（`encoding` は `EditorView._currentEncoding` を渡す） |
+| `openDroppedFile(filePath)` | `filePath: string` | D&D された `.md` ファイルを開く。Python 側で拡張子検証・ルート切替・読知を一括実行しツリー+ファイル内容を返す |
 | `createFile(filePath)` | `filePath: string` | 新規 `.md` ファイルを作成する |
 | `deleteFile(filePath)` | `filePath: string` | ファイルを削除する |
 | `renameFile(oldPath, newPath)` | `oldPath: string`, `newPath: string` | ファイル/フォルダ名を変更する |
@@ -197,6 +212,8 @@ _backend.saveFile(filePath, content, encoding, (responseJson) => {
 ```
 
 > **エンコードの扱い:** `readFile` のレスポンス `data.encoding` を `EditorView._currentEncoding` に内部保持し、`saveFile` 呼び出し時に第3引数として渡す。JS 側はエンコード変換を一切行わない。
+
+> **D&D のエンコード処理:** `openDroppedFile` のレスポンスにも `data.fileContent.encoding` が含まれる。`EditorView.load()` を同様に呼び出すことで、D&D 時もエンコードが正しく保持される。
 
 ---
 
@@ -223,6 +240,7 @@ _backend.saveFile(filePath, content, encoding, (responseJson) => {
 | `onNewFile()` | なし | void | `prompt()` でファイル名入力 → バリデーション → `BridgeClient.createFile()` → ツリー再描画 |
 | `onRename(targetPath)` | `targetPath: string` | void | `prompt()` で新名前入力 → バリデーション → 同名確認 → `BridgeClient.renameFile()` → ツリー再描画 |
 | `onDelete(targetPath)` | `targetPath: string` | void | `confirm()` で確認 → `BridgeClient.deleteFile()` → ツリー再描画。削除対象が現在開いているファイルの場合はエディタもクリアする |
+| `setSelectedPath(filePath)` | `filePath: string` | void | 指定ファイルノードの選択状態 ( `.selected` クラス) を更新する。D&D 後に呼び出す。 |
 | `refresh()` | なし | void | `BridgeClient.getTree(_rootPath)` を再呼び出しし `render()` をやり直す |
 
 ---
@@ -306,6 +324,50 @@ marked.setOptions({
 
 ---
 
+#### 2.7.6 DragDropHandler（`app.js` 内）
+
+**役割:** アプリ内へのドラッグ＆ドロップイベントを受け付け、BridgeClient 経由で Python 側に渡す。
+
+**初期化:**
+```javascript
+// app.js 内で DOMContentLoaded のタイミングで登録
+['dragover', 'dragenter'].forEach(evt =>
+  document.getElementById('right-pane').addEventListener(evt, (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+  })
+);
+document.getElementById('right-pane').addEventListener('drop', DragDropHandler.onDrop);
+```
+
+**主要関数仕様:**
+
+| 関数名 | 引数 | 戻り値 | 処理内容 |
+|--------|------|--------|----------|
+| `onDragOver(event)` | `event: DragEvent` | void | `event.preventDefault()` でブラウザのデフォルト動作（ファイルをページとして開く）をキャンセルする |
+| `onDrop(event)` | `event: DragEvent` | void | ① `event.preventDefault()` 、② `event.dataTransfer.files[0].path` でファイルパスを取得、③ `BridgeClient.openDroppedFile(filePath)` を呼び出す |
+| `_handleResult(res)` | `res: object` | void | `res.success` の場合: `TreeView.render(res.data.tree)` → `TreeView.setSelectedPath(res.data.fileContent.path)` → `EditorView.load(...)` → `PreviewView.update()` 。失敗の場合: `StatusBar.showError(res.error)` |
+
+**`openDroppedFile` レスポンス JSON 構造:**
+```json
+{
+  "success": true,
+  "data": {
+    "tree": { /* get_tree と同形式 */ },
+    "fileContent": {
+      "path": "/path/to/file.md",
+      "content": "ファイル内容",
+      "encoding": "cp932"
+    }
+  },
+  "error": null
+}
+```
+
+> **Shift-JIS ファイル文字化け防止:** D&D 時の読み込みはバックエンド内の `FileService.read_file()` を必ず経由するため、`chardet` による判定・`cp932` 展開・`errors='replace'` デコードが自動適用される。JS 側はエンコード変換を一切行わない。
+
+---
+
 ## 3. バックエンド詳細設計（Python）
 
 ### 3.1 モジュール設計
@@ -363,8 +425,7 @@ class BackendBridge(QObject):
 | `selectFolder(callback)` | `@pyqtSlot(result=str)` | `QFileDialog.getExistingDirectory()` を呼び出し、選択パスを文字列で返す。未選択時は `""` を返す |
 | `getTree(folder_path, callback)` | `@pyqtSlot(str, result=str)` | `FileService.get_tree(folder_path)` を呼び出し、結果JSONを返す |
 | `readFile(file_path, callback)` | `@pyqtSlot(str, result=str)` | `FileService.read_file(file_path)` を呼び出し、結果JSONを返す |
-| `saveFile(file_path, content, encoding, callback)` | `@pyqtSlot(str, str, str, result=str)` | `FileService.save_file(file_path, content, encoding)` を呼び出し、結果JSONを返す |
-| `createFile(file_path, callback)` | `@pyqtSlot(str, result=str)` | `FileService.create_file(file_path)` を呼び出し、結果JSONを返す |
+| `saveFile(file_path, content, encoding, callback)` | `@pyqtSlot(str, str, str, result=str)` | `FileService.save_file(file_path, content, encoding)` を呼び出し、結果JSONを返す || `openDroppedFile(file_path, callback)` | `@pyqtSlot(str, result=str)` | ① `FileService.validate_extension(file_path)` で `.md` 検証、② `FileService.resolve_root(file_path)` でルート利用・必要ならルート切替、③ `FileService.get_tree(root)` 、④ `FileService.read_file(file_path)` を頂、ツリー＋ファイル内容をJSONで返す || `createFile(file_path, callback)` | `@pyqtSlot(str, result=str)` | `FileService.create_file(file_path)` を呼び出し、結果JSONを返す |
 | `deleteFile(file_path, callback)` | `@pyqtSlot(str, result=str)` | `FileService.delete_file(file_path)` を呼び出し、結果JSONを返す |
 | `renameFile(old_path, new_path, callback)` | `@pyqtSlot(str, str, result=str)` | `FileService.rename_file(old_path, new_path)` を呼び出し、結果JSONを返す |
 
@@ -389,6 +450,24 @@ class FileService:
 ```
 
 **主要関数仕様:**
+
+##### `validate_extension(file_path: str) -> None`
+- **処理:**
+  1. `Path(file_path).suffix.lower()` で拡張子を取得する。
+  2. 拡張子が `".md"` 以外の場合 → `ValueError("INVALID_EXTENSION")` を送出する。
+
+---
+
+##### `resolve_root(file_path: str) -> str`
+- **処理:**
+  1. `target = Path(file_path).resolve()` で絶対パス化。
+  2. `self._base_path` が `None` または `target` が `self._base_path` の配下でない場合:
+     - `new_root = target.parent`。`set_base_path(str(new_root))` でルートを切替。
+  3. `self._base_path` の配下にある場合: 切替しない。
+  4. 最終的な `str(self._base_path)` を返す。
+- **備考:** この関数は `open_dropped_file` 内部からのみ呼び出す。
+
+---
 
 ##### `set_base_path(folder_path: str) -> None`
 - `self._base_path = Path(folder_path).resolve()` でルートを記録する。
@@ -482,6 +561,7 @@ class FileService:
 | `backend.getTree(path, cb)` | `getTree(str)` | `folderPath: string` | `{success, data: treeNode, error}` | |
 | `backend.readFile(path, cb)` | `readFile(str)` | `filePath: string` | `{success, data: {path,content,encoding}, error}` | |
 | `backend.saveFile(path, content, encoding, cb)` | `saveFile(str,str,str)` | `filePath, content, encoding: string` | `{success, data: null, error}` | `encoding` に `_currentEncoding` を渡す |
+| `backend.openDroppedFile(path, cb)` | `openDroppedFile(str)` | `filePath: string` | `{success, data: {tree, fileContent: {path,content,encoding}}, error}` | D&D で投下した .md ファイルを開く |
 | `backend.createFile(path, cb)` | `createFile(str)` | `filePath: string` | `{success, data: null, error}` | |
 | `backend.deleteFile(path, cb)` | `deleteFile(str)` | `filePath: string` | `{success, data: null, error}` | |
 | `backend.renameFile(old, new, cb)` | `renameFile(str,str)` | `oldPath, newPath: string` | `{success, data: null, error}` | |
@@ -527,9 +607,10 @@ class FileService:
 | `PERMISSION_DENIED` | 読み取り・書き込み権限なし | `PermissionError` | `"アクセスが拒否されました"` |
 | `PATH_TRAVERSAL` | 指定フォルダ外へのアクセス | `PermissionError` | `"フォルダ外へのアクセスは禁止されています"` |
 | `ENCODING_ERROR` | 文字コード判定・デコード失敗 | UnicodeDecodeError 等 | `"文字コードを判定できませんでした"` |
-| `ENCODE_SAVE_ERROR` | 元エンコードで表現できない文字を含む保存失敗 | `UnicodeEncodeError` | `"元の文字コードで表現できない文字が含まれます"` |
+| `ENCODE_SAVE_ERROR` | 元エンコードで表現できない文字を含む保存失敗 | UnicodeEncodeError | `"元の文字コードで表現できない文字が含まれます"` |
 | `FILE_EXISTS` | 同名ファイルが既に存在する | `FileExistsError` | `"同名のファイルが既に存在します"` |
 | `BASE_NOT_SET` | ベースパスが未設定 | `ValueError` | `"フォルダが選択されていません"` |
+| `INVALID_EXTENSION` | `.md` 以外の拡張子のファイルが D&D でドロップされた | `ValueError` | `"対応していないファイル形式です（.md のみ対応）"` |
 | `UNKNOWN_ERROR` | 上記以外の例外 | `Exception` | `"予期しないエラーが発生しました"` |
 
 ### 4.2 Python 側の共通例外ハンドリングパターン
@@ -552,6 +633,8 @@ def _safe_execute(self, func, *args) -> str:
     except Exception:
         return self._err("UNKNOWN_ERROR")
 ```
+
+> **`INVALID_EXTENSION` のハンドリング:** `validate_extension` が `ValueError("INVALID_EXTENSION")` を送出するため、`except ValueError as e: return self._err(str(e))` で捕捉される。
 
 ---
 
@@ -606,8 +689,13 @@ def resource_path(relative_path: str) -> Path:
 | UT-BE-12 | `FileService.delete_file` | ファイルが削除される | 正常 |
 | UT-BE-13 | `FileService.delete_file` | 存在しないファイルは `FILE_NOT_FOUND` | 異常 |
 | UT-BE-14 | `FileService.rename_file` | ファイル名が変更される | 正常 |
-| UT-BE-15 | `FileService.rename_file` | 同名ファイル存在時は `FILE_EXISTS` | 異常 |
-| UT-FE-01 | `StatusBar.showWarning` | 未保存フラグ ON 時に常時表示されている | 正常 |
+| UT-BE-15 | `FileService.rename_file` | 同名ファイル存在時は `FILE_EXISTS` | 異常 || UT-BE-16 | `FileService.validate_extension` | `.md` ファイルは正常通過する | 正常 |
+| UT-BE-17 | `FileService.validate_extension` | `.txt` など `.md` 以外の拡張子は `INVALID_EXTENSION` | 異常 |
+| UT-BE-18 | `FileService.resolve_root` | ルートフォルダ外のファイルの場合、親フォルダにルートが切り替わる | 正常 |
+| UT-BE-19 | `FileService.resolve_root` | ルートフォルダ内のファイルの場合、ルートは変更されない | 正常 |
+| UT-BE-20 | `BackendBridge.openDroppedFile` | UTF-8 .md を D&D した場合、ツリー＋ファイル内容を含むJSONが返る | 正常 |
+| UT-BE-21 | `BackendBridge.openDroppedFile` | Shift-JIS .md を D&D した場合、文字化けなく content が返り `encoding=cp932` が包まれる | 正常 |
+| UT-BE-22 | `BackendBridge.openDroppedFile` | `.txt` ファイルを D&D した場合、`INVALID_EXTENSION` が返る | 異常 || UT-FE-01 | `StatusBar.showWarning` | 未保存フラグ ON 時に常時表示されている | 正常 |
 | UT-FE-02 | `StatusBar.showSuccess` | 保存成功後に3秒で消える | 正常 |
 | UT-FE-03 | `EditorView.save` | ファイル未選択時は `StatusBar.showError` が呼ばれる | 異常 |
 | UT-FE-04 | `TreeView.onDelete` | confirm キャンセル時は `deleteFile` が呼ばれない | 異常 |
@@ -628,6 +716,10 @@ def resource_path(relative_path: str) -> Path:
 | 7 | HTML ロード方法 | `QWebEngineView.setUrl(QUrl.fromLocalFile(str(resource_path("resources/ui.html"))))` を使用すること |
 | **8** | **`save_file` のエンコード引数** | **`BackendBridge.saveFile` の `@pyqtSlot` シグネチャを `(str, str, str)` に変更し、`encoding` を第3引数として受け取ること** |
 | **9** | **`read_file` の `encoding` 実装方針** | **`chardet` が `shift_jis` を返した場合は `cp932` に展開して保存・返却すること。`cp932` は Windows 互換性を確保するため** |
+| **10** | **`FileService.validate_extension` 実装** | **`Path(file_path).suffix.lower() != ".md"` の場合に `ValueError("INVALID_EXTENSION")` を送出すること** |
+| **11** | **`FileService.resolve_root` 実装** | **ファイルの親フォルダが現ルート外の場合に自動切替すること。`set_base_path` を内部呼び出する** |
+| **12** | **`BackendBridge.openDroppedFile` 実装** | **スロットシグネチャは `@pyqtSlot(str, result=str)`。処理順序: `validate_extension` → `resolve_root` → `get_tree` → `read_file`。戻り値は `{success, data: {tree, fileContent}, error}` 形式** |
+| **13** | **JS 側 D&D ハンドラ** | **`dragover` で `event.preventDefault()`、`drop` で `event.dataTransfer.files[0].path` を取得して `backend.openDroppedFile()` 呼び出し。`QWebEngineView` の DOM イベント経由で処理すること** |
 
 ---
 
@@ -653,6 +745,7 @@ def resource_path(relative_path: str) -> Path:
 |------|------|------|
 | v1.0.0 | `02_basic_design.md` v1.0.0 をもとに初版を新規作成 | 2026-03-02 |
 | v1.1.0 | `02_basic_design.md` v1.1.0 の変更（Shift-JIS 対応強化、エンコード保持保存）を反映 | 2026-03-02 |
+| v1.2.0 | `02_basic_design.md` v1.2.0 の変更（D&D 機能追加・Shift-JIS D&D 文字化け対応）を反映 | 2026-03-02 |
 
 ### 9.1 変更一覧（v1.0.0 → v1.1.0）
 
@@ -673,11 +766,38 @@ def resource_path(relative_path: str) -> Path:
 | 追加 | UT-BE-08a, UT-BE-08b §6.1 | Shift-JIS 保存正常・`ENCODE_SAVE_ERROR` 異常テストを追加 |
 | 変更 | 引継ぎ項目 8, 9 §7 | `save_file` エンコード引数・`read_file` の `cp932` 展開実装方針を追加 |
 
-### 9.2 実装工程（04）への必須引継ぎ
+### 9.2 実装工程（04）への必須引継ぎ（v1.1.0）
 
 - §7「実装への引継ぎ事項」アイテム **8, 9** を参照し、`save_file` のエンコード引数と `read_file` の `cp932` 展開処理を必ず実装すること。
 
-### 9.3 回帰確認観点（03観点）
+### 9.4 変更一覧（v1.1.0 → v1.2.0）
+
+**変更背景:** 基本設計 v1.2.0 で D&D 機能（BE-10、FE-12〜14）が追加されたため、詳細設計に D&D 実装仕様を追加する。
+
+| 変更種別 | 対象 | 内容 |
+|----------|------|------|
+| 変更 | §1 文書情報 | 版数 v1.2.0、参照元を v1.2.0 に更新 |
+| 変更 | §2.1.1 画面表示責務 | D&D 対応ノート（`#right-pane` へのイベント登録）を追記 |
+| 変更 | §2.5 イベント表 | `dragover` / `drop` イベントのハンドリング仕様を追加 |
+| 変更 | §2.6 画面遷移 | D&D ドロップ時の遷移フローを追加 |
+| 変更 | §2.7.1 BridgeClient | `openDroppedFile()` メソッドを公開メソッド一覧に追加 |
+| 変更 | §2.7.1 エンコードノート | D&D 時のエンコード処理ノートを追記 |
+| 変更 | §2.7.2 TreeView | `setSelectedPath()` 関数仕様を追加 |
+| 追加 | §2.7.6 DragDropHandler | D&D イベントハンドラモジュール全体を新規追加 |
+| 変更 | §3.2.2 BackendBridge | `openDroppedFile` スロット仕様を追加 |
+| 追加 | §3.2.3 FileService | `validate_extension`・`resolve_root` 関数仕様を追加 |
+| 変更 | §3.3 QWebChannel 表 | `openDroppedFile` 行を追加 |
+| 追加 | §4.1 エラーコード | `INVALID_EXTENSION` を追加 |
+| 変更 | §4.2 共通ハンドラ | `INVALID_EXTENSION` の捕捉方針のノートを追記 |
+| 追加 | §6.1 UT-BE-16〜22 | D&D 関連テストケースを追加 |
+| 追加 | §7 10, 11, 12, 13 | D&D 実装への引継ぎ項目を追加 |
+
+### 9.5 実装工程（04）への必須引継ぎ（v1.2.0）
+
+- §7 アイテム **10, 11, 12, 13** を参照し、`validate_extension`・`resolve_root`・`openDroppedFile`・ JS D&D ハンドラ を実装すること。
+- D&D 実装の核心は **`openDroppedFile` が `read_file` と同一の chardet フローをさせること**。JS 側にエンコード処理が漏れることなく、Shift-JIS D&D 文字化けバグを根本解決する。
+
+### 9.3 回帰確認観点（v1.1.0）
 
 | # | 観点 |
 |---|------|
@@ -685,4 +805,14 @@ def resource_path(relative_path: str) -> Path:
 | 2 | Shift-JIS ファイルの読み込みで文字化けが発生しないこと（UT-BE-06） |
 | 3 | Shift-JIS ファイルの保存後が `cp932` エンコードであること（UT-BE-08） |
 | 4 | `cp932` で表現できない文字の保存時に `ENCODE_SAVE_ERROR` が返ること（UT-BE-08b） |
+
+### 9.6 回帰確認観点（v1.2.0）
+
+| # | 観点 |
+|---|------|
+| 1 | v1.1.0 までの全テスト（UT-BE-01〜15、UT-FE-01〜05）が D&D 追加後も引き続き正常動作すること |
+| 2 | D&D で UTF-8 .md をドロップした場合に文字化けなく表示されること（UT-BE-20） |
+| 3 | D&D で Shift-JIS .md をドロップした場合に文字化けなく表示され `encoding=cp932` が返ること（UT-BE-21） |
+| 4 | D&D で `.md` 以外をドロップした場合 `INVALID_EXTENSION` が返りエラー表示されること（UT-BE-22） |
+| 5 | D&D 後にファイルツリーが正しく更新・選択状態になること |
 

@@ -68,6 +68,10 @@ const BridgeClient = (() => {
     renameFile(oldPath, newPath, callback) {
       _call("renameFile", [oldPath, newPath], callback);
     },
+
+    openDroppedFile(filePath, callback) {
+      _call("openDroppedFile", [filePath], callback);
+    },
   };
 })();
 
@@ -572,7 +576,62 @@ const TreeView = (() => {
     });
   }
 
-  return { init, render, refresh };
+  function setSelectedPath(filePath) {
+    _selectedPath = filePath;
+    document.querySelectorAll(".tree-label.selected").forEach((el) => el.classList.remove("selected"));
+    const el = document.querySelector(`.tree-label[data-path="${CSS.escape(filePath)}"]`);
+    if (el) el.classList.add("selected");
+  }
+
+  return { init, render, refresh, setSelectedPath };
+})();
+
+
+/* ============================================================
+   DragDropHandler
+   ============================================================ */
+const DragDropHandler = (() => {
+  function init() {
+    const rightPane = document.getElementById("right-pane");
+
+    ["dragover", "dragenter"].forEach((evt) => {
+      rightPane.addEventListener(evt, (e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "copy";
+      });
+    });
+
+    rightPane.addEventListener("drop", onDrop);
+  }
+
+  function onDrop(e) {
+    e.preventDefault();
+    const files = e.dataTransfer.files;
+    if (!files || files.length === 0) return;
+    // Electron 互換 or Qt WebEngine では files[0].path が利用可能
+    const filePath = files[0].path || "";
+    if (!filePath) {
+      StatusBar.showError("ファイルパスを取得できませんでした");
+      return;
+    }
+    BridgeClient.openDroppedFile(filePath, _handleResult);
+  }
+
+  function _handleResult(res) {
+    if (!res.success) {
+      StatusBar.showError(_errorMessage(res.error));
+      return;
+    }
+    const { tree, fileContent } = res.data;
+    TreeView.render(tree);
+    // ドロップされたファイルを選択状態に設定
+    TreeView.setSelectedPath(fileContent.path);
+    EditorView.load(fileContent.path, fileContent.content, fileContent.encoding);
+    if (!PreviewView.isVisible()) PreviewView.show();
+    StatusBar.showSuccess(`ドロップ: ${fileContent.path.split("/").pop()}`);
+  }
+
+  return { init, onDrop };
 })();
 
 
@@ -581,15 +640,17 @@ const TreeView = (() => {
    ============================================================ */
 function _errorMessage(code) {
   const map = {
-    FOLDER_NOT_FOUND:  "フォルダが見つかりません",
-    FILE_NOT_FOUND:    "ファイルが見つかりません",
-    PERMISSION_DENIED: "アクセスが拒否されました",
-    PATH_TRAVERSAL:    "フォルダ外へのアクセスは禁止されています",
-    ENCODING_ERROR:    "文字コードを判定できませんでした",
-    FILE_EXISTS:       "同名のファイルが既に存在します",
-    BASE_NOT_SET:      "フォルダが選択されていません",
-    BRIDGE_NOT_READY:  "バックエンドと接続できていません",
-    UNKNOWN_ERROR:     "予期しないエラーが発生しました",
+    FOLDER_NOT_FOUND:    "フォルダが見つかりません",
+    FILE_NOT_FOUND:      "ファイルが見つかりません",
+    PERMISSION_DENIED:   "アクセスが拒否されました",
+    PATH_TRAVERSAL:      "フォルダ外へのアクセスは禁止されています",
+    ENCODING_ERROR:      "文字コードを判定できませんでした",
+    ENCODE_SAVE_ERROR:   "元の文字コードで表現できない文字が含まれます",
+    FILE_EXISTS:         "同名のファイルが既に存在します",
+    BASE_NOT_SET:        "フォルダが選択されていません",
+    INVALID_EXTENSION:   "対応していないファイル形式です（.md のみ対応）",
+    BRIDGE_NOT_READY:    "バックエンドと接続できていません",
+    UNKNOWN_ERROR:       "予期しないエラーが発生しました",
   };
   return map[code] || `エラー: ${code}`;
 }
@@ -604,6 +665,7 @@ const App = (() => {
     PreviewView.init();
     EditorView.init();
     TreeView.init();
+    DragDropHandler.init();
     _bindToolbar();
     StatusBar.showSuccess("mdFileReader が起動しました");
   }

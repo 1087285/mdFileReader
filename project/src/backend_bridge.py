@@ -88,3 +88,45 @@ class BackendBridge(QObject):
     def renameFile(self, old_path: str, new_path: str) -> str:
         """ファイル/フォルダ名を変更し、結果を JSON で返す。"""
         return self._fs.rename_file(old_path, new_path)
+
+    # ------------------------------------------------------------------
+    # D&D ファイルを開く
+    # ------------------------------------------------------------------
+
+    @pyqtSlot(str, result=str)
+    def openDroppedFile(self, file_path: str) -> str:
+        """
+        D&D されたファイルを開く。
+        処理順序:
+          1. validate_extension で .md 検証
+          2. resolve_root でルート切替（必要な場合）
+          3. get_tree でツリーデータ取得
+          4. read_file でファイル内容取得
+        戻り値: {"success": true, "data": {"tree": {...}, "fileContent": {...}}, "error": null}
+        """
+        import json  # noqa: PLC0415
+        try:
+            self._fs.validate_extension(file_path)
+            root_path = self._fs.resolve_root(file_path)
+
+            tree_json = self._fs.get_tree(root_path)
+            tree_res = json.loads(tree_json)
+            if not tree_res["success"]:
+                return tree_json
+
+            file_json = self._fs.read_file(file_path)
+            file_res = json.loads(file_json)
+            if not file_res["success"]:
+                return file_json
+
+            data = {
+                "tree": tree_res["data"],
+                "fileContent": file_res["data"],
+            }
+            return json.dumps({"success": True, "data": data, "error": None}, ensure_ascii=False)
+
+        except ValueError as e:
+            code = str(e) if str(e) in {"INVALID_EXTENSION", "BASE_NOT_SET"} else "UNKNOWN_ERROR"
+            return json.dumps({"success": False, "data": None, "error": code}, ensure_ascii=False)
+        except Exception:
+            return json.dumps({"success": False, "data": None, "error": "UNKNOWN_ERROR"}, ensure_ascii=False)

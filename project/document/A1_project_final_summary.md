@@ -5,8 +5,9 @@
 | 項目 | 内容 |
 |------|------|
 | 文書名 | プロジェクト最終報告サマリ |
-| 版数 | v1.1.0 |
+| 版数 | v1.2.0 |
 | 作成日 | 2026-03-02 |
+| 最終更新日 | 2026-03-03（v1.2.0 D&D 機能追加） |
 | 作成者 | GitHub Copilot（08_release_agent） |
 | プロジェクト | mdFileReader |
 
@@ -24,7 +25,7 @@
 
 | 判定 | 根拠 |
 |------|------|
-| **Conditional Go（条件付き可）** | Python 层全機能 pytest 45件 PASS。Windows 実機受入テスト（ACC-OK-01～13, ACC-NG-01～07）の完了をリリース最終条件とする。 |
+| **Conditional Go（条件付き可）** | Python 層全機能 pytest 58件 PASS。Windows 実機受入テスト（ACC-OK-01～16, ACC-NG-01～09）の完了をリリース最終条件とする。 |
 
 ### 条件付き承認の条件
 
@@ -32,8 +33,8 @@
 |---|---------|------|------|
 | 1 | Linux 実行ファイルビルド → `project/src/dist/mdFileReader` 生成 | 08 エージェント（自動） | ✅ 完了（Linux ELF, 192MB） |
 | 2 | `git tag v1.0.0 && git push origin v1.0.0` 実行 → GitHub Actions で `mdFileReader.exe` 自動生成 | 08 エーシェント（自動） | ⚠️ 受入テスト完了後に実行 |
-| 3 | `ACC-OK-01～13`（正常系受入テスト）全件手動確認 | リリース担当者 | ⚠️ 実機確認待ち |
-| 4 | `ACC-NG-01〜07`（異常系受入テスト）全件手動確認（`ACC-NG-03` は pytest 確認済み） | リリース担当者 | ⚠️ 実機確認待ち |
+| 3 | `ACC-OK-01～16`（正常系受入テスト）全件手動確認 | リリース担当者 | ⚠️ 実機確認待ち |
+| 4 | `ACC-NG-01〜09`（異常系受入テスト）全件手動確認（`ACC-NG-03` は pytest 確認済み） | リリース担当者 | ⚠️ 実機確認待ち |
 | 5 | GitHub Releases 本体作成・Windows `.exe` アタッチ | リリース担当者 | ⚠️ Windows ビルド後に実施 |
 
 ---
@@ -42,13 +43,13 @@
 
 | 工程 | 成果物 | 状態 |
 |------|--------|------|
-| 工程1. 要件定義 | `project/document/01_requirements.md` | ✅ 承認済み（2026-03-02）　v1.1.0 |
-| 工程2. 基本設計 | `project/document/02_basic_design.md` | ✅ 承認済み（2026-03-02）　v1.1.0 |
-| 工程3. 詳細設計 | `project/document/03_detailed_design.md` | ✅ 承認済み（2026-03-02）　v1.1.0 |
-| 工程4. 実装 | `project/document/04_implementation.md` + `project/src/` | ✅ 承認済み（2026-03-02）　v1.1.0 |
-| 工程5. 単体評価 | `project/document/05_unit_test.md` | ✅ 承認済み（2026-03-02）　v1.1.0 |
-| 工程6. 結合評価 | `project/document/06_integration_test.md` | ✅ 承認済み（2026-03-02）　v1.1.0 |
-| 工程7. システム評価 | `project/document/07_system_test.md` | ✅ 承認済み（2026-03-02）　v1.1.0 |
+| 工程1. 要件定義 | `project/document/01_requirements.md` | ✅ 承認済み（2026-03-02）　v1.2.0 |
+| 工程2. 基本設計 | `project/document/02_basic_design.md` | ✅ 承認済み（2026-03-02）　v1.2.0 |
+| 工程3. 詳細設計 | `project/document/03_detailed_design.md` | ✅ 承認済み（2026-03-02）　v1.2.0 |
+| 工程4. 実装 | `project/document/04_implementation.md` + `project/src/` | ✅ 承認済み（2026-03-02）　v1.2.0 |
+| 工程5. 単体評価 | `project/document/05_unit_test.md` | ✅ 承認済み（2026-03-03）　v1.2.0 |
+| 工程6. 結合評価 | `project/document/06_integration_test.md` | ✅ 承認済み（2026-03-03）　v1.2.0 |
+| 工程7. システム評価 | `project/document/07_system_test.md` | ✅ 承認済み（2026-03-03）　v1.2.0 |
 | 8. リリース | `project/document/08_release.md` | ⏳ 条件付き可（実機確認待ち） |
 
 ---
@@ -57,14 +58,14 @@
 
 | 区分 | 要件数 | pytest 確認済み | 実機確認待ち |
 |------|--------|---------------|------------|
-| 処理要件（REQ-PROC） | 13 | 12 | 1（REQ-PROC-11: QWebChannel） |
-| UI 要件（REQ-UI） | 8 | 1（REQ-UI-08） | 7 |
-| 入力要件（REQ-IN） | 4 | 0 | 4 |
+| 処理要件（REQ-PROC） | 17 | 16 | 1（REQ-PROC-11: QWebChannel） |
+| UI 要件（REQ-UI） | 10 | 1（REQ-UI-08） | 9 |
+| 入力要件（REQ-IN） | 5 | 1（REQ-PROC-02b: D&D バリデーション） | 4（GUI 確認要） |
 | 出力要件（REQ-OUT） | 5 | 部分（data 値検証） | 5（GUI 確認要） |
 | 運用要件（REQ-OPS） | 4 | 0 | 4 |
 | 保守要件（REQ-MNT） | 4 | 3 | 1（REQ-MNT-02: README 更新） |
 
-**pytest 実績: 45 / 45 PASS（単体 24、結合 21）**
+**pytest 実績: 58 / 58 PASS（単体 32、結合 26）**
 
 ---
 
@@ -90,8 +91,8 @@
 
 | 項目 | 内容 |
 |------|------|
-| GitHub Releases | https://github.com/1087285/mdFileReader/releases/tag/v1.1.0 |
-| タグ | v1.1.0 |
+| GitHub Releases | ⚠️ v1.2.0 タグ作成待ち |
+| タグ | v1.2.0 |
 
 ---
 
@@ -100,5 +101,4 @@
 | 版数 | 日付 | 変更内容 |
 |------|------|----------|
 | v1.0.0 | 2026-03-02 | 初版作成（工程1〜8 完了時） |
-| v1.1.0 | 2026-03-02 | Shift-JIS 対応（全工程 v1.1.0 根拠更新） |
-
+| v1.1.0 | 2026-03-02 | Shift-JIS 対応（全工程 v1.1.0 根拠更新） || v1.2.0 | 2026-03-03 | D&D 機能追加（全工程 v1.2.0 根拠更新） |

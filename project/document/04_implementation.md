@@ -5,10 +5,11 @@
 | 項目 | 内容 |
 |------|------|
 | 文書名 | 実装記録 |
-| 版数 | v1.1.0 |
+| 版数 | v1.2.0 |
 | 作成日 | 2026-03-02 |
+| 最終更新日 | 2026-03-02（v1.2.0 D&D 機能追加） |
 | 作成者 | GitHub Copilot（04_implementation_agent） |
-| 参照元 | `project/document/03_detailed_design.md` v1.1.0 |
+| 参照元 | `project/document/03_detailed_design.md` v1.2.0 |
 | ステータス | 承認済み（2026-03-02） |
 
 ---
@@ -76,6 +77,8 @@
 | `FileService.create_file` | `file_service.py` | ✅ |
 | `FileService.delete_file` | `file_service.py` | ✅ |
 | `FileService.rename_file` | `file_service.py` | ✅ |
+| `FileService.validate_extension` | `file_service.py` | ✅ |
+| `FileService.resolve_root` | `file_service.py` | ✅ |
 | `BackendBridge.selectFolder` | `backend_bridge.py` | ✅ |
 | `BackendBridge.getTree` | `backend_bridge.py` | ✅ |
 | `BackendBridge.readFile` | `backend_bridge.py` | ✅ |
@@ -83,12 +86,16 @@
 | `BackendBridge.createFile` | `backend_bridge.py` | ✅ |
 | `BackendBridge.deleteFile` | `backend_bridge.py` | ✅ |
 | `BackendBridge.renameFile` | `backend_bridge.py` | ✅ |
+| `BackendBridge.openDroppedFile` | `backend_bridge.py` | ✅ |
 | `MainWindow._setup_window/webview/channel/html` | `main_window.py` | ✅ |
 | `BridgeClient` | `resources/app.js` | ✅ |
+| `BridgeClient.openDroppedFile` | `resources/app.js` | ✅ |
 | `StatusBar` | `resources/app.js` | ✅ |
 | `PreviewView` | `resources/app.js` | ✅ |
 | `EditorView` | `resources/app.js` | ✅ |
 | `TreeView` | `resources/app.js` | ✅ |
+| `TreeView.setSelectedPath` | `resources/app.js` | ✅ |
+| `DragDropHandler` | `resources/app.js` | ✅ |
 | HTML 構造 (`ui.html`) | `resources/ui.html` | ✅ |
 | CSS スタイル (`style.css`) | `resources/style.css` | ✅ |
 
@@ -116,6 +123,12 @@
 | UT-BE-10 | `create_file`: 新規ファイルが作成される | ✅ PASS |
 | UT-BE-12 | `delete_file`: ファイルが削除される | ✅ PASS |
 | UT-BE-14 | `rename_file`: ファイル名が変更される | ✅ PASS |
+| UT-BE-16 | `validate_extension`: .md ファイルは正常通過 | ✅ PASS |
+| UT-BE-17 | `validate_extension`: .txt は INVALID_EXTENSION | ✅ PASS |
+| UT-BE-18 | `resolve_root`: ルート外ファイルで親フォルダに切替 | ✅ PASS |
+| UT-BE-19 | `resolve_root`: ルート内ファイルではルート変更なし | ✅ PASS |
+| UT-BE-20 | `openDroppedFile`: UTF-8 .md をドロップしてツリー＋内容が返る | ✅ PASS |
+| UT-BE-22 | `openDroppedFile`: .txt ドロップで INVALID_EXTENSION | ✅ PASS |
 
 ### 5.3 未実施テスト（単体評価工程（05）で実施）
 
@@ -156,10 +169,10 @@ pyinstaller mdFileReader.spec
 | # | 確認項目 | 状態 |
 |---|----------|------|
 | 1 | 主要機能が詳細設計どおりに `project/src/` へ実装されている | ✅ 承認済み |
-| 2 | スモークテストが全件 PASS している | ✅ 承認済み |
-| 3 | 実装差分（対象ファイル・要点・確認結果）が記録されている | ✅ 承認済み |
-| 4 | PyInstaller ビルド手順が記録されている | ✅ 承認済み |
-| 5 | GitHub 使用者のレビュー承認が完了している | ✅ 承認済み |
+| 2 | スモークテストが全件 PASS している | ✅ |
+| 3 | 実装差分（対象ファイル・要点・確認結果）が記録されている | ✅ |
+| 4 | PyInstaller ビルド手順が記録されている | ✅ |
+| 5 | GitHub 使用者のレビュー承認が完了している | ✅ 承認済み（2026-03-02） |
 
 ---
 
@@ -199,4 +212,36 @@ pyinstaller mdFileReader.spec
 | 1 | 新規フォルダ作成が `.gitkeep` 方式の簡易実装 | 次版で `BackendBridge.createFolder` スロットを追加する |
 | 2 | `qwebchannel.js` は GitHub 生ソースをダウンロード | PyInstaller ビルド時は `resources/qwebchannel.js` として同梱済みのため問題なし |
 | 3 | GUI テスト（`BackendBridge` + `QWebEngineView` 統合動作）は実機（Windows）確認が必要 | 単体評価・結合評価工程で実施 |
+
+---
+
+### 8.3 v1.2.0 変更内容（D&D 機能追加）
+
+#### 変更ファイル一覧
+
+| ファイル | 変更内容 |
+|----------|----------|
+| `file_service.py` | ① `validate_extension()` 追加: `.md` 以外で `ValueError("INVALID_EXTENSION")` を送出<br>② `resolve_root()` 追加: ルート外ファイルの場合に `set_base_path(parent)` で自動切替<br>③ `_KNOWN_CODES` に `"INVALID_EXTENSION"` を追加 |
+| `backend_bridge.py` | `openDroppedFile()` スロット追加: `@pyqtSlot(str, result=str)` で `validate_extension` → `resolve_root` → `get_tree` → `read_file` を順次呼び出し、`{tree, fileContent}` を含む JSON を返す |
+| `resources/app.js` | ① `BridgeClient.openDroppedFile()` 追加<br>② `DragDropHandler` モジュール追加（`dragover`/`drop` イベント登録・`_handleResult` による TreeView・EditorView・PreviewView 更新）<br>③ `TreeView.setSelectedPath()` を追加して外部公開<br>④ `_errorMessage()` に `INVALID_EXTENSION`・`ENCODE_SAVE_ERROR` を追加<br>⑤ `App.init()` に `DragDropHandler.init()` 呼び出しを追加 |
+
+#### スモークテスト追加結果
+
+| テストID | 観点 | 結果 |
+|----------|------|------|
+| UT-BE-16 | `validate_extension`: .md は正常通過 | ✅ PASS |
+| UT-BE-17 | `validate_extension`: .txt は INVALID_EXTENSION | ✅ PASS |
+| UT-BE-18 | `resolve_root`: ルート外ファイルで親フォルダに切替 | ✅ PASS |
+| UT-BE-19 | `resolve_root`: ルート内ファイルではルート変更なし | ✅ PASS |
+| UT-BE-20 | `openDroppedFile`: UTF-8 .md のツリー＋ファイル内容が返る | ✅ PASS |
+| UT-BE-22 | `openDroppedFile`: .txt で INVALID_EXTENSION | ✅ PASS |
+
+#### 回帰確認観点（v1.2.0 追加）
+
+| # | 確認観点 |
+|---|----------|
+| 1 | v1.1.0 までの全テスト（pytest 24件）が PASS | ✅ PASS |
+| 2 | D&D で UTF-8 .md をドロップした場合に文字化けなく表示される | スモークテスト確認済（UT-BE-20） |
+| 3 | D&D で Shift-JIS .md をドロップした場合に文字化けなく表示され `encoding=cp932` が返る | 05 工程で実施（UT-BE-21） |
+| 4 | D&D で `.md` 以外をドロップした場合 `INVALID_EXTENSION` が返りエラー表示される | スモークテスト確認済（UT-BE-22） |
 
