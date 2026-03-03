@@ -5,12 +5,12 @@
 | 項目 | 内容 |
 |------|------|
 | 文書名 | 実装記録 |
-| 版数 | v1.2.0 |
+| 版数 | v1.3.0 |
 | 作成日 | 2026-03-02 |
-| 最終更新日 | 2026-03-02（v1.2.0 D&D 機能追加） |
+| 最終更新日 | 2026-03-03（v1.3.0 D&D 禁止実装） |
 | 作成者 | GitHub Copilot（04_implementation_agent） |
-| 参照元 | `project/document/03_detailed_design.md` v1.2.0 |
-| ステータス | 承認済み（2026-03-02） |
+| 参照元 | `project/document/03_detailed_design.md` v1.3.0 |
+| ステータス | 承認済み |
 
 ---
 
@@ -77,8 +77,7 @@
 | `FileService.create_file` | `file_service.py` | ✅ |
 | `FileService.delete_file` | `file_service.py` | ✅ |
 | `FileService.rename_file` | `file_service.py` | ✅ |
-| `FileService.validate_extension` | `file_service.py` | ✅ |
-| `FileService.resolve_root` | `file_service.py` | ✅ |
+| `FileService.notify_drop_blocked` | `file_service.py` | ✅ |
 | `BackendBridge.selectFolder` | `backend_bridge.py` | ✅ |
 | `BackendBridge.getTree` | `backend_bridge.py` | ✅ |
 | `BackendBridge.readFile` | `backend_bridge.py` | ✅ |
@@ -86,10 +85,10 @@
 | `BackendBridge.createFile` | `backend_bridge.py` | ✅ |
 | `BackendBridge.deleteFile` | `backend_bridge.py` | ✅ |
 | `BackendBridge.renameFile` | `backend_bridge.py` | ✅ |
-| `BackendBridge.openDroppedFile` | `backend_bridge.py` | ✅ |
+| `BackendBridge.notifyDropBlocked` | `backend_bridge.py` | ✅ |
 | `MainWindow._setup_window/webview/channel/html` | `main_window.py` | ✅ |
 | `BridgeClient` | `resources/app.js` | ✅ |
-| `BridgeClient.openDroppedFile` | `resources/app.js` | ✅ |
+| `BridgeClient.notifyDropBlocked` | `resources/app.js` | ✅ |
 | `StatusBar` | `resources/app.js` | ✅ |
 | `PreviewView` | `resources/app.js` | ✅ |
 | `EditorView` | `resources/app.js` | ✅ |
@@ -123,24 +122,16 @@
 | UT-BE-10 | `create_file`: 新規ファイルが作成される | ✅ PASS |
 | UT-BE-12 | `delete_file`: ファイルが削除される | ✅ PASS |
 | UT-BE-14 | `rename_file`: ファイル名が変更される | ✅ PASS |
-| UT-BE-16 | `validate_extension`: .md ファイルは正常通過 | ✅ PASS |
-| UT-BE-17 | `validate_extension`: .txt は INVALID_EXTENSION | ✅ PASS |
-| UT-BE-18 | `resolve_root`: ルート外ファイルで親フォルダに切替 | ✅ PASS |
-| UT-BE-19 | `resolve_root`: ルート内ファイルではルート変更なし | ✅ PASS |
-| UT-BE-20 | `openDroppedFile`: UTF-8 .md をドロップしてツリー＋内容が返る | ✅ PASS |
-| UT-BE-22 | `openDroppedFile`: .txt ドロップで INVALID_EXTENSION | ✅ PASS |
+| UT-BE-16 | `notify_drop_blocked`: D&D 操作時に `DROP_BLOCKED` を返す | ✅ PASS |
+| UT-BE-17 | `notifyDropBlocked`: BackendBridge 経由で `DROP_BLOCKED` を返す | ✅ PASS |
+| UT-BE-18 | D&D 通知後も通常 `readFile` が正常動作する | ✅ PASS |
+| PYTEST-ALL | `test_file_service.py` + `test_integration.py` 合計49件 | ✅ PASS（49 passed） |
 
 ### 5.3 未実施テスト（単体評価工程（05）で実施）
 
 | テストID | 観点 | 理由 |
 |----------|------|------|
-| UT-BE-04 | `get_tree`: 存在しないフォルダは `FOLDER_NOT_FOUND` | 05 工程で実施 |
-| UT-BE-06 | `read_file`: Shift-JIS ファイルが文字化けなく読まれる | 05 工程で実施 |
-| UT-BE-07 | `read_file`: 存在しないファイルは `FILE_NOT_FOUND` | 05 工程で実施 |
-| UT-BE-09 | `save_file`: 権限なしファイルへの保存は `PERMISSION_DENIED` | 05 工程で実施 |
-| UT-BE-11 | `create_file`: 同名ファイル存在時は `FILE_EXISTS` | 05 工程で実施 |
-| UT-BE-13 | `delete_file`: 存在しないファイルは `FILE_NOT_FOUND` | 05 工程で実施 |
-| UT-BE-15 | `rename_file`: 同名ファイル存在時は `FILE_EXISTS` | 05 工程で実施 |
+| なし | なし | `test_file_service.py` + `test_integration.py` 実行済み |
 | UT-FE-01〜05 | フロントエンドロジック全般 | 05 工程でアプリ起動後に手動確認 |
 
 ---
@@ -168,11 +159,11 @@ pyinstaller mdFileReader.spec
 
 | # | 確認項目 | 状態 |
 |---|----------|------|
-| 1 | 主要機能が詳細設計どおりに `project/src/` へ実装されている | ✅ 承認済み |
+| 1 | 主要機能が詳細設計どおりに `project/src/` へ実装されている | ✅ |
 | 2 | スモークテストが全件 PASS している | ✅ |
 | 3 | 実装差分（対象ファイル・要点・確認結果）が記録されている | ✅ |
 | 4 | PyInstaller ビルド手順が記録されている | ✅ |
-| 5 | GitHub 使用者のレビュー承認が完了している | ✅ 承認済み（2026-03-02） |
+| 5 | GitHub 使用者のレビュー承認が完了している | ✅ 承認済み |
 
 ---
 
@@ -244,4 +235,32 @@ pyinstaller mdFileReader.spec
 | 2 | D&D で UTF-8 .md をドロップした場合に文字化けなく表示される | スモークテスト確認済（UT-BE-20） |
 | 3 | D&D で Shift-JIS .md をドロップした場合に文字化けなく表示され `encoding=cp932` が返る | 05 工程で実施（UT-BE-21） |
 | 4 | D&D で `.md` 以外をドロップした場合 `INVALID_EXTENSION` が返りエラー表示される | スモークテスト確認済（UT-BE-22） |
+
+---
+
+### 8.4 v1.3.0 変更内容（D&D 機能禁止）
+
+#### 変更ファイル一覧
+
+| ファイル | 変更内容 |
+|----------|----------|
+| `file_service.py` | `validate_extension` / `resolve_root` を廃止し、`notify_drop_blocked()` を追加。`DROP_BLOCKED` を返却する実装へ変更 |
+| `backend_bridge.py` | `openDroppedFile()` を廃止し、`notifyDropBlocked()` スロットを追加 |
+| `resources/app.js` | `BridgeClient.openDroppedFile()` を廃止し `notifyDropBlocked()` へ置換。`DragDropHandler.onDrop()` はファイルパス取得を行わず、禁止通知のみ実行 |
+| `test_file_service.py` | `validate_extension` / `resolve_root` テストを削除し、`notify_drop_blocked` テストへ置換 |
+| `test_integration.py` | `openDroppedFile` 統合テストを削除し、`notifyDropBlocked` 統合テストへ置換 |
+
+#### テスト実行結果
+
+| コマンド | 結果 |
+|----------|------|
+| `/workspaces/mdFileReader/.venv/bin/python -m pytest project/test/test_file_service.py project/test/test_integration.py -q` | ✅ `49 passed in 1.66s` |
+
+#### 回帰確認観点（v1.3.0 追加）
+
+| # | 確認観点 |
+|---|----------|
+| 1 | D&D 実行時にファイルが開かれず `DROP_BLOCKED` が返ること |
+| 2 | D&D 実行後もツリー・エディタ・プレビューの状態が変化しないこと |
+| 3 | D&D 以外の既存操作（選択・編集・保存・削除）が引き続き正常動作すること |
 

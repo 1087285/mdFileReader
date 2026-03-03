@@ -24,42 +24,12 @@ class FileService:
         self._base_path = Path(folder_path).resolve()
 
     # ------------------------------------------------------------------
-    # 拡張子バリデーション
+    # D&D 禁止通知
     # ------------------------------------------------------------------
 
-    def validate_extension(self, file_path: str) -> None:
-        """
-        ファイルパスの拡張子が .md であることを検証する。
-
-        Raises:
-            ValueError: .md 以外の拡張子の場合 ("INVALID_EXTENSION")
-        """
-        if Path(file_path).suffix.lower() != ".md":
-            raise ValueError("INVALID_EXTENSION")
-
-    # ------------------------------------------------------------------
-    # ルートパス解決（D&D 用）
-    # ------------------------------------------------------------------
-
-    def resolve_root(self, file_path: str) -> str:
-        """
-        D&D されたファイルのパスに基づきルートフォルダを解決する。
-        ファイルが現在のルートフォルダ外にある場合は親フォルダをルートに切替える。
-
-        Returns:
-            最終的なルートフォルダパスの文字列
-        """
-        target = Path(file_path).resolve()
-        if self._base_path is None:
-            # ルート未設定の場合は親フォルダをルートとして設定
-            self.set_base_path(str(target.parent))
-        else:
-            # ルート設定済みの場合、ファイルがルート外なら親フォルダに切替
-            try:
-                target.relative_to(self._base_path)
-            except ValueError:
-                self.set_base_path(str(target.parent))
-        return str(self._base_path)
+    def notify_drop_blocked(self) -> str:
+        """D&D 操作が禁止であることを示すエラーJSONを返す。"""
+        return _err("DROP_BLOCKED")
 
     # ------------------------------------------------------------------
     # バリデーション
@@ -313,7 +283,7 @@ class FileService:
 _KNOWN_CODES: frozenset[str] = frozenset({
     "PATH_TRAVERSAL", "PERMISSION_DENIED", "FILE_NOT_FOUND",
     "FILE_EXISTS", "FOLDER_NOT_FOUND", "BASE_NOT_SET",
-    "ENCODING_ERROR", "ENCODE_SAVE_ERROR", "INVALID_EXTENSION", "UNKNOWN_ERROR",
+    "ENCODING_ERROR", "ENCODE_SAVE_ERROR", "DROP_BLOCKED", "UNKNOWN_ERROR",
 })
 
 

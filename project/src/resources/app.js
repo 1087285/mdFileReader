@@ -69,8 +69,8 @@ const BridgeClient = (() => {
       _call("renameFile", [oldPath, newPath], callback);
     },
 
-    openDroppedFile(filePath, callback) {
-      _call("openDroppedFile", [filePath], callback);
+    notifyDropBlocked(callback) {
+      _call("notifyDropBlocked", [], callback);
     },
   };
 })();
@@ -606,15 +606,8 @@ const DragDropHandler = (() => {
 
   function onDrop(e) {
     e.preventDefault();
-    const files = e.dataTransfer.files;
-    if (!files || files.length === 0) return;
-    // Electron 互換 or Qt WebEngine では files[0].path が利用可能
-    const filePath = files[0].path || "";
-    if (!filePath) {
-      StatusBar.showError("ファイルパスを取得できませんでした");
-      return;
-    }
-    BridgeClient.openDroppedFile(filePath, _handleResult);
+    e.stopPropagation();
+    BridgeClient.notifyDropBlocked(_handleResult);
   }
 
   function _handleResult(res) {
@@ -622,13 +615,7 @@ const DragDropHandler = (() => {
       StatusBar.showError(_errorMessage(res.error));
       return;
     }
-    const { tree, fileContent } = res.data;
-    TreeView.render(tree);
-    // ドロップされたファイルを選択状態に設定
-    TreeView.setSelectedPath(fileContent.path);
-    EditorView.load(fileContent.path, fileContent.content, fileContent.encoding);
-    if (!PreviewView.isVisible()) PreviewView.show();
-    StatusBar.showSuccess(`ドロップ: ${fileContent.path.split("/").pop()}`);
+    StatusBar.showError("ドラッグ＆ドロップは禁止です");
   }
 
   return { init, onDrop };
@@ -648,7 +635,7 @@ function _errorMessage(code) {
     ENCODE_SAVE_ERROR:   "元の文字コードで表現できない文字が含まれます",
     FILE_EXISTS:         "同名のファイルが既に存在します",
     BASE_NOT_SET:        "フォルダが選択されていません",
-    INVALID_EXTENSION:   "対応していないファイル形式です（.md のみ対応）",
+    DROP_BLOCKED:        "ドラッグ＆ドロップは禁止です",
     BRIDGE_NOT_READY:    "バックエンドと接続できていません",
     UNKNOWN_ERROR:       "予期しないエラーが発生しました",
   };

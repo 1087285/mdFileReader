@@ -5,7 +5,7 @@
 | 項目 | 内容 |
 |------|------|
 | 文書名 | プッシュ運用ガイド |
-| 版数 | v1.1.0 |
+| 版数 | v1.3.0 |
 | 作成日 | 2026-03-02 |
 | 作成者 | GitHub Copilot（08_release_agent） |
 
@@ -37,11 +37,11 @@
 
 [変更点]
 - project/src/file_service.py: PermissionError 正規化対応
-- project/test/test_file_service.py: pytest 22ケース追加
+- project/test/test_file_service.py: D&D 禁止テスト（UT-BE-16）へ更新
 - project/document/05_unit_test.md: 単体評価記録を作成
 
 [確認結果]
-- pytest project/test/ -v: 41 / 41 PASS
+- pytest project/test/ -v: 49 / 49 PASS
 - Python 構文チェック: 全ファイル OK
 ```
 
@@ -74,8 +74,8 @@ git push origin main
 
 ```bash
 # 1. リリースタグを作成して push するだけで Windows .exe が自動生成される
-git tag v1.1.0
-git push origin v1.1.0
+git tag v1.3.0
+git push origin v1.3.0
 ```
 
 タグを push すると `.github/workflows/build-release.yml` が自動実行され、以下が行われる：
@@ -91,7 +91,7 @@ git push origin v1.1.0
 
 ```bash
 # 2. Releases 公開後、リリース URL を A1/A2 に記入してコミット・push
-# https://github.com/1087285/mdFileReader/releases/tag/v1.0.0
+# https://github.com/1087285/mdFileReader/releases/tag/v1.3.0
 ```
 
 ---
@@ -116,4 +116,5 @@ git push origin v1.1.0
 | v1.0.0 | 2026-03-02 | 初版作成 |
 | v1.0.1 | 2026-03-02 | §5.1 を GitHub Actions 自動ビルド手順に更新 |
 | v1.1.0 | 2026-03-02 | v1.1.0 タグ名・版数を Shift-JIS 対応リリースに更新 |
+| v1.3.0 | 2026-03-03 | v1.3.0 タグ名・テスト実績（49 PASS）・D&D 禁止仕様へ更新 |
 

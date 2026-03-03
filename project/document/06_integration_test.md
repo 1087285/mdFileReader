@@ -5,11 +5,11 @@
 | 項目 | 内容 |
 |------|------|
 | 文書名 | 結合評価記録 |
-| 版数 | v1.2.0 |
+| 版数 | v1.3.0 |
 | 作成日 | 2026-03-02 |
-| 最終更新日 | 2026-03-03（v1.2.0 D&D テスト追加） |
+| 最終更新日 | 2026-03-03（v1.3.0 D&D 禁止仕様反映） |
 | 作成者 | GitHub Copilot（06_integration_test_agent） |
-| 参照元 | `project/document/02_basic_design.md` v1.2.0、`project/document/05_unit_test.md` v1.2.0 |
+| 参照元 | `project/document/02_basic_design.md` v1.3.0、`project/document/05_unit_test.md` v1.3.0 |
 | ステータス | 承認済み（2026-03-03） |
 
 ---
@@ -17,7 +17,7 @@
 ## 2. 目的
 
 基本設計書（02）で定義したサブシステム連携が正しく動作することを評価する。  
-具体的には `BackendBridge` → `FileService` の委譲フローおよびパストラバーサルガードの連携動作を検証する。
+具体的には `BackendBridge` → `FileService` の委譲フロー、パストラバーサルガード、および D&D 禁止（`DROP_BLOCKED`）の連携動作を検証する。
 
 ---
 
@@ -25,7 +25,7 @@
 
 | 評価区分 | 範囲 | 実施方法 |
 |---------|------|---------|
-| Python 層 E2E（IT-01〜IT-08） | BackendBridge + FileService の統合呼び出し | 自動（pytest） |
+| Python 層 E2E（IT-01〜IT-08、UT-BE-16〜18） | BackendBridge + FileService の統合呼び出し | 自動（pytest） |
 | QWebChannel 連携（IT-09） | JS BridgeClient ↔ BackendBridge のメソッド呼び出し・コールバック | 手動（Windows 実機） |
 | 完全 E2E フロー（IT-10） | フォルダ選択→ツリー表示→編集→保存の全画面フロー | 手動（Windows 実機） |
 
@@ -45,7 +45,7 @@
 
 ## 5. 判定
 
-### 5.1 自動テスト結果（IT-01〜IT-08、UT-BE-20〜22）
+### 5.1 自動テスト結果（IT-01〜IT-08、UT-BE-16〜18）
 
 | テストID | 観点 | 区分 | 実績 |
 |---------|------|------|------|
@@ -70,13 +70,11 @@
 | IT-07 | deleteFile フォルダ外アクセスブロック | 異常 | ✅ PASS |
 | IT-07 | renameFile 移動先フォルダ外アクセスブロック | 異常 | ✅ PASS |
 | IT-08 | Python 層 E2E: 作成→読込→保存→リネーム→削除の連続操作 | 正常 | ✅ PASS |
-| UT-BE-20 | BackendBridge.openDroppedFile → UTF-8 .md でツリー＋内容が返る | 正常 | ✅ PASS |
-| UT-BE-21 | BackendBridge.openDroppedFile → Shift-JIS .md で cp932 エンコードが返る | 正常 | ✅ PASS |
-| UT-BE-22 | BackendBridge.openDroppedFile → `.md` 以外は INVALID_EXTENSION | 異常 | ✅ PASS |
-| IT-DnD-01 | BackendBridge.openDroppedFile → ルート外ファイルで親フォルダにルート切替 | 正常 | ✅ PASS |
-| IT-DnD-02 | BackendBridge.openDroppedFile → `.py` 拡張子は INVALID_EXTENSION | 異常 | ✅ PASS |
+| UT-BE-16 | BackendBridge.notifyDropBlocked → D&D 実行時に `DROP_BLOCKED` が返る | 異常 | ✅ PASS |
+| UT-BE-17 | BackendBridge.notifyDropBlocked → D&D 通知後も `base_path` が変更されない | 正常 | ✅ PASS |
+| UT-BE-18 | BackendBridge.notifyDropBlocked → D&D 通知後も `readFile` が正常動作する | 正常 | ✅ PASS |
 
-**自動テスト集計: 26 / 26 PASS（pytest、BackendBridge + FileService 統合）**
+**自動テスト集計: 24 / 24 PASS（pytest、BackendBridge + FileService 統合）**
 
 ---
 
@@ -92,9 +90,9 @@
 | IT-09c | アプリ起動 → JS `backend.saveFile(path, content, encoding, cb)` がコールバックで成功を返す | `res.success === true` かつファイルが指定エンコードで更新される | ⚠️ 未実施 |
 | IT-09d | アプリ起動 → JS `backend.selectFolder(cb)` でフォルダ選択ダイアログが開く | `cb` が選択パス文字列で呼ばれる | ⚠️ 未実施 |
 | IT-10 | アプリ起動 → フォルダ選択 → ツリー表示 → ファイルをクリック → 編集 → Ctrl+S → ステータスバー確認 | ツリー描画・エディタ表示・保存成功メッセージが正常に動作する | ⚠️ 未実施 |
-| IT-10a | `.md` ファイルを右ペインにドラッグ＆ドロップ → ツリー更新＋エディタ表示 | ツリーとエディタが更新されることを確認 | ⚠️ 未実施 |
-| IT-10b | Shift-JIS .md を D&D → 文字化けなく表示 | Shift-JIS ファイルが文字化けなく表示されることを確認 | ⚠️ 未実施 |
-| IT-10c | ルート外ファイルを D&D → ルート自動切替 → ツリー再描画 | ルートが親フォルダに切替わりツリーが再描画されることを確認 | ⚠️ 未実施 |
+| IT-10a | `.md` ファイルを右ペインにドラッグ＆ドロップ | `DROP_BLOCKED` 通知が表示され、ツリー・エディタ・プレビューが不変であることを確認 | ⚠️ 未実施 |
+| IT-10b | Shift-JIS .md を D&D | `DROP_BLOCKED` 通知が表示され、文字コード判定や表示更新が発生しないことを確認 | ⚠️ 未実施 |
+| IT-10c | ルート外ファイルを D&D | `DROP_BLOCKED` 通知のみで、ルート切替・ツリー再描画が発生しないことを確認 | ⚠️ 未実施 |
 
 ---
 
@@ -110,7 +108,7 @@
 
 | # | 確認項目 | 状態 |
 |---|----------|------|
-| 1 | IT-01〜IT-08・UT-BE-20〜22・IT-DnD の全 26 pytest テストが PASS している | ✅ 確認済み（26 / 26 PASS） |
+| 1 | IT-01〜IT-08・UT-BE-16〜18 の全 24 pytest テストが PASS している | ✅ 確認済み（24 / 24 PASS） |
 | 2 | フォルダ外アクセスが BackendBridge 全メソッドでブロックされる | ✅ 確認済み（IT-07 × 5ケース） |
 | 3 | Python 層 E2E フロー（作成→読込→保存→リネーム→削除）が正常動作する | ✅ 確認済み（IT-08） |
 | 4 | IT-09〜IT-10 の未実施事項がシステム評価への引継ぎ事項として記録されている | ✅ §8 に記録済み |
@@ -125,7 +123,7 @@
 |---|------------|------|
 | 1 | IT-09（QWebChannel 連携）未実施 | Windows 実機で JS BridgeClient → BackendBridge のコールバックフローを手動確認 |
 | 2 | IT-10（完全 E2E）未実施 | Windows 実機でフォルダ選択→ツリー→編集→保存の全画面フローを確認 |
-| 3 | IT-10a〜c（D&D 実機確認）未実施 | `event.dataTransfer.files[0].path` が Qt WebEngine 環境で取得できるか確認 |
+| 3 | IT-10a〜c（D&D 禁止実機確認）未実施 | D&D 実行時に `DROP_BLOCKED` 通知のみが表示され、状態不変であることを確認 |
 | 4 | selectFolder（QFileDialog）未確認 | Qt の GUI ダイアログが正しく表示・選択パスを返すことを実機で確認 |
 | 5 | PyInstaller ビルド後の動作未確認 | `.exe` 単体起動での全機能確認をシステム評価で実施 |
 
@@ -161,3 +159,13 @@
 | 手動確認追加 | §5.2 IT-10a〜c | D&D 実機確認（D&D 表示・Shift-JIS・ルート切替）を追加 |
 | 引継ぎ追加 | §8 #3 | D&D 実機確認（IT-10a〜c）を引継ぎ事項に追加 |
 | 件数更新 | 全体 | 自動テスト 21 件 → 26 件 |
+
+### 9.4 v1.3.0 変更内容（D&D 禁止仕様反映）
+
+| 変更種別 | 対象 | 内容 |
+|----------|------|------|
+| 参照更新 | §1 文書情報 | 参照元を `02_basic_design.md` v1.3.0、`05_unit_test.md` v1.3.0 に更新 |
+| テスト観点変更 | §5.1 | `openDroppedFile` 系（UT-BE-20〜22、IT-DnD-01/02）を廃止し、`notifyDropBlocked` 系（UT-BE-16〜18）へ変更 |
+| 手動確認変更 | §5.2 IT-10a〜c | D&D 実行時の期待結果を「読み込み成功」から「`DROP_BLOCKED` 通知＋状態不変」に変更 |
+| 引継ぎ変更 | §8 #3 | D&D 引継ぎ内容を「パス取得可否確認」から「禁止通知・状態不変確認」へ変更 |
+| 件数更新 | §5.1 / §7 | 自動テスト件数を 26 件 → 24 件に更新 |

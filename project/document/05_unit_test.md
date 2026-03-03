@@ -5,18 +5,18 @@
 | 項目 | 内容 |
 |------|------|
 | 文書名 | 単体評価記録 |
-| 版数 | v1.2.0 |
+| 版数 | v1.3.0 |
 | 作成日 | 2026-03-02 |
-| 最終更新日 | 2026-03-02（v1.2.0 D&D テスト追加） |
+| 最終更新日 | 2026-03-03（v1.3.0 D&D 禁止テスト更新） |
 | 作成者 | GitHub Copilot（05_unit_test_agent） |
-| 参照元 | `project/document/03_detailed_design.md` v1.2.0, `project/document/04_implementation.md` v1.2.0 |
-| ステータス | 承認済み（2026-03-02） |
+| 参照元 | `project/document/03_detailed_design.md` v1.3.0, `project/document/04_implementation.md` v1.3.0 |
+| ステータス | 承認済み（2026-03-03） |
 
 ---
 
 ## 2. 目的
 
-詳細設計書（03）v1.2.0 で定義した 29 テストケース（UT-BE-01〜22、UT-FE-01〜05）に基づいて実装の正確性を検証し、各関数の判定条件に対する MC/DC（Modified Condition/Decision Coverage）100% 達成を確認する。
+詳細設計書（03）v1.3.0 に基づき、D&D 禁止仕様を含むテストケース（UT-BE-01〜18、UT-FE-01〜05）で実装の正確性を検証し、各関数の判定条件に対する MC/DC（Modified Condition/Decision Coverage）100% 達成を確認する。
 
 ---
 
@@ -35,8 +35,8 @@
 |------|------|
 | テストフレームワーク | pytest 9.0.2 |
 | Python バージョン | Python 3.12.3 (venv) |
-| テストファイル | `project/test/test_file_service.py` |
-| 実行コマンド | `.venv/bin/pytest project/test/test_file_service.py -v` |
+| テストファイル | `project/test/test_file_service.py`, `project/test/test_integration.py` |
+| 実行コマンド | `/workspaces/mdFileReader/.venv/bin/python -m pytest project/test/test_file_service.py project/test/test_integration.py -q` |
 | FE テスト | GUI 環境（Windows 実機）での手動確認 |
 
 ---
@@ -70,20 +70,16 @@
 | UT-BE-13 | `FileService.delete_file` | 存在しないファイルは `FILE_NOT_FOUND` | 異常 | ✅ PASS |
 | UT-BE-14 | `FileService.rename_file` | ファイル名が変更される | 正常 | ✅ PASS |
 | UT-BE-15 | `FileService.rename_file` | 同名ファイル存在時は `FILE_EXISTS` | 異常 | ✅ PASS |
-| UT-BE-16 | `FileService.validate_extension` | `.md` ファイルは正常通過する | 正常 | ✅ PASS |
-| UT-BE-17 | `FileService.validate_extension` | `.md` 以外の拡張子は `INVALID_EXTENSION` | 異常 | ✅ PASS |
-| UT-BE-18 | `FileService.resolve_root` | ルートフォルダ外のファイルは親フォルダにルートが切り替わる | 正常 | ✅ PASS |
-| UT-BE-19 | `FileService.resolve_root` | ルートフォルダ内のファイルはルートが変更されない | 正常 | ✅ PASS |
-| UT-BE-20 | `BackendBridge.openDroppedFile` | UTF-8 .md をドロップしてツリー＋内容が返る | 正常 | ✅ PASS |
-| UT-BE-21 | `BackendBridge.openDroppedFile` | Shift-JIS .md をドロップして文字化けなく `encoding=cp932` が返る | 正常 | ✅ PASS |
-| UT-BE-22 | `BackendBridge.openDroppedFile` | `.md` 以外のファイルは `INVALID_EXTENSION` | 異常 | ✅ PASS |
+| UT-BE-16 | `FileService.notify_drop_blocked` | D&D 実行時に `DROP_BLOCKED` を返す | 異常 | ✅ PASS |
+| UT-BE-17 | `BackendBridge.notifyDropBlocked` | D&D 実行時に `DROP_BLOCKED` を返す | 異常 | ✅ PASS |
+| UT-BE-18 | D&D 禁止後の通常動作 | D&D 通知後も `readFile` が正常動作する | 正常 | ✅ PASS |
 | UT-FE-01 | `StatusBar.showWarning` | 未保存フラグ ON 時に常時表示されている | 正常 | ⚠️ 手動確認要 |
 | UT-FE-02 | `StatusBar.showSuccess` | 保存成功後に 3 秒で消える | 正常 | ⚠️ 手動確認要 |
 | UT-FE-03 | `EditorView.save` | ファイル未選択時は `StatusBar.showError` が呼ばれる | 異常 | ⚠️ 手動確認要 |
 | UT-FE-04 | `TreeView.onDelete` | confirm キャンセル時は `deleteFile` が呼ばれない | 異常 | ⚠️ 手動確認要 |
 | UT-FE-05 | `TreeView.onNewFile` | 空文字入力時はエラーが表示される | 異常 | ⚠️ 手動確認要 |
 
-**BE テスト集計: 24 / 24 PASS（pytest 自動実行、設計検証ケース含む 58 テスト PASS）**  
+**BE テスト集計: 18 / 18 PASS（pytest 自動実行、実行総数 49 テスト PASS）**  
 **FE テスト: 5 件 未実施（GUI 実機確認待ち）**
 
 ---
@@ -99,32 +95,29 @@
 
 MC/DC 達成率: **100%**（C1×2ケース, C2×2ケース）
 
-### 7.8 `FileService.validate_extension`
+### 7.8 `FileService.notify_drop_blocked`
 
 | 基本条件 | 条件内容 | True ケース | False ケース |
 |----------|---------|------------|-------------|
-| C1 | `suffix.lower() == ".md"` が False | UT-BE-17（.txt, .py, 拡張子なし） → `INVALID_EXTENSION` | UT-BE-16（.md, .MD） → 正常通過 |
+| C1 | D&D 操作が実行された | UT-BE-16 → `DROP_BLOCKED` | なし（D&D 未実行時は本関数を呼び出さない） |
 
 MC/DC 達成率: **100%**
 
-### 7.9 `FileService.resolve_root`
+### 7.9 `BackendBridge.notifyDropBlocked`
 
 | 基本条件 | 条件内容 | True ケース | False ケース |
 |----------|---------|------------|-------------|
-| C1 | `self._base_path is None` | `test_UT_BE_18_base_not_set_sets_parent` → 親フォルダをルートに設定 | UT-BE-18, UT-BE-19（設定済み状態） |
-| C2 | `target not in self._base_path` | `test_UT_BE_18_file_outside_root_switches` → 親フォルダに切替 | `test_UT_BE_19_file_inside_root_no_change`, `test_resolve_root_subdirectory_stays_in_root` → ルート維持 |
+| C1 | `notify_drop_blocked` の返却をそのまま返す | UT-BE-17 → `DROP_BLOCKED` | なし |
 
 MC/DC 達成率: **100%**
 
-### 7.10 `BackendBridge.openDroppedFile`
+### 7.10 D&D 禁止後の状態維持
 
 | 基本条件 | 条件内容 | True ケース | False ケース |
 |----------|---------|------------|-------------|
-| C1 | `validate_extension` 失敗 | UT-BE-22, `test_IT_openDroppedFile_py_extension_fails` → `INVALID_EXTENSION` | UT-BE-20, UT-BE-21 → 正常処理 |
-| C2 | `get_tree` 失敗 | ※ 存在しないフォルダパスを使った異常系（`test_integration.py` IT-01 で間接カバー） | UT-BE-20, UT-BE-21 → 正常処理 |
-| C3 | `read_file` 失敗 | ※ `_base_path` 切替後のパス検証失敗時（PATH_TRAVERSAL）は IT-07 で間接カバー | UT-BE-20, UT-BE-21 → 正常処理 |
+| C1 | D&D 通知後も通常 API が使える | UT-BE-18 → `readFile` 正常動作 | なし |
 
-MC/DC 達成率: **C1: 100% / C2: 間接カバー / C3: 間接カバー**（C2/C3 は IT テストで補完）
+MC/DC 達成率: **100%**
 
 ### 7.2 `FileService.get_tree`
 
@@ -208,11 +201,11 @@ MC/DC 達成率: **100%**
 
 | # | 確認項目 | 状態 |
 |---|----------|------|
-| 1 | UT-BE-01〜22 (BE 全 24 ケース) の pytest テストが PASS している | ✅ 確認済み（58 / 58 PASS） |
-| 2 | 全関数の MC/DC 達成率が 100% である（openDroppedFile C2/C3 は間接カバー） | ✅ 確認済み |
+| 1 | UT-BE-01〜18 (BE 全 18 ケース) の pytest テストが PASS している | ✅ 確認済み（49 / 49 PASS） |
+| 2 | 全関数の MC/DC 達成率が 100% である（D&D 禁止仕様を含む） | ✅ 確認済み |
 | 3 | 不具合 BUG-BE-01 が是正済みであり、是正後テストが PASS している | ✅ 確認済み |
 | 4 | UT-FE-01〜05 の未実施事項が結合評価への引継ぎ事項として記録されている | ✅ §9 に記録済み |
-| 5 | GitHub 使用者のレビュー承認が完了している | ✅ 承認済み（2026-03-02） |
+| 5 | GitHub 使用者のレビュー承認が完了している | ✅ 承認済み（2026-03-03） |
 
 ---
 
@@ -224,8 +217,7 @@ MC/DC 達成率: **100%**
 | 2 | QWebChannel 統合確認 | BackendBridge の `@pyqtSlot` と JS BridgeClient の呼び出し連携は結合評価で確認 |
 | 3 | PyInstaller ビルド確認 | `.exe` 単体での動作確認は結合評価または系統評価で実施 |
 | 4 | ダイアログ動作確認 | `selectFolder()`（QFileDialog）・削除確認ダイアログの実機動作は未確認 |
-| 5 | D&D 実機確認 | `QWebEngineView` への D&D（`event.dataTransfer.files[0].path`）はブラウザ標準では取得不可。Qt 経由の動作確認は Windows 実機が必要 |
-| 6 | D&D Shift-JIS 文字化け確認（UT-BE-21 手動確認） | Shift-JIS .md を実機で D&D した際の表示結果を手動確認する |
+| 5 | D&D 禁止動作確認 | D&D 実行時に `DROP_BLOCKED` が返り、状態（ツリー・エディタ・プレビュー）が不変であることを実機で確認する |
 
 ---
 
@@ -259,3 +251,12 @@ MC/DC 達成率: **100%**
 | テスト修正 | UT-BE-20 | ASCII のみのコンテンツでは `chardet` が `ascii` と判定するため、日本語含む内容に修正 |
 | MC/DC 追加 | §7.8〜7.10 | `validate_extension` / `resolve_root` / `openDroppedFile` の MC/DC 表を追加 |
 | 件数更新 | 全体 | テスト総数 24 件 → 58 件（うちユニットテスト設計 BE: 24 件）に更新 |
+
+### 12.4 v1.3.0 変更内容（D&D 禁止テスト更新）
+
+| 変更種別 | 対象 | 内容 |
+|----------|------|------|
+| テスト変更 | `test_file_service.py` | `validate_extension` / `resolve_root` テストを廃止し、`notify_drop_blocked` テストへ置換 |
+| テスト変更 | `test_integration.py` | `openDroppedFile` テストを廃止し、`notifyDropBlocked` テストへ置換 |
+| テスト結果更新 | §6, §10 | D&D 禁止仕様の UT-BE-16〜18 へ更新。pytest 実行結果を `49 / 49 PASS` に更新 |
+| MC/DC 更新 | §7.8〜7.10 | D&D 開封系の MC/DC を禁止通知系の MC/DC へ置換 |

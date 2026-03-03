@@ -5,12 +5,12 @@
 | 項目 | 内容 |
 |------|------|
 | 文書名 | 基本設計書 |
-| 版数 | v1.2.0 |
+| 版数 | v1.3.0 |
 | 作成日 | 2026-03-02 |
-| 最終更新日 | 2026-03-02（v1.2.0 差分更新） |
+| 最終更新日 | 2026-03-03（v1.3.0 差分更新） |
 | 作成者 | GitHub Copilot（02_basic_design_agent） |
-| 参照元 | `project/document/01_requirements.md` v1.2.0、`requests/minutes_v120.md` |
-| ステータス | レビュー待ち |
+| 参照元 | `project/document/01_requirements.md` v1.3.0、`requests/minutes_v130.md` |
+| ステータス | 承認済み |
 
 ---
 
@@ -86,7 +86,6 @@ mdFileReader/
 ```
 [起動] ─→ QMainWindow 生成 ─→ QWebEngineView に ui.html ロード
           ─→ QWebChannel セットアップ（backend オブジェクト公開）
-          ─→ QWebEngineView に acceptDrops(True) 設定
           ─→ JS の new QWebChannel() 完了
           ─→ [ユーザー操作待ち]
 
@@ -131,14 +130,12 @@ mdFileReader/
          ─→ JS: ツリー更新
 
 [ドラッグ＆ドロップ]
-  ユーザ ─→ .md ファイルをウィンドウ上にドロップ
-         ─→ JS: dragover イベントで event.preventDefault()（ブラウザデフォルト動作キャンセル）
-         ─→ JS: drop イベントでファイルパスを取得 → backend.openDroppedFile(filePath) 呼び出し
-         ─→ Python: 拡張子バリデーション（.md のみ許可）
-         ─→ Python: ファイルの親フォルダが現ルートフォルダ外の場合 → 親フォルダをルートに自動設定 → getTree() 相当の処理
-         ─→ Python: readFile(filePath) と同一の読み込みフロー（chardet 文字コード自動判定・エンコード保持）
-         ─→ Python: ツリーデータ + ファイル内容を JSON で返却
-         ─→ JS: ツリーを再描画 → ドロップファイルを選択状態に設定 → エディタ・プレビューを更新
+  ユーザ ─→ 任意ファイルをウィンドウ上にドロップ
+         ─→ JS: dragover/drop イベントを抑止し、デフォルト動作をキャンセル
+         ─→ JS: backend.notifyDropBlocked() 呼び出し
+         ─→ Python: D&D 禁止イベントとして受理し、ファイルパス取得・読み込み・ツリー更新を実行しない
+         ─→ Python: 禁止通知レスポンスを JSON で返却
+         ─→ JS: ステータスバーに「ドラッグ＆ドロップは禁止です」を表示（画面状態は変更しない）
 ```
 
 ---
@@ -149,8 +146,8 @@ mdFileReader/
 
 | コンポーネントID | 名称 | 種別 | 説明 |
 |-----------------|------|------|------|
-| COMP-01 | MainWindow | Python | アプリウィンドウ。`QMainWindow` を継承。`QWebEngineView` を配置し `QWebChannel` を初期化する。D&D 受付のため `acceptDrops(True)` を設定する |
-| COMP-02 | BackendBridge | Python | `QObject` を継承し `@pyqtSlot` でJSから呼び出し可能なメソッドを提供するクラス。D&D ファイル処理メソッド（`openDroppedFile`）を含む |
+| COMP-01 | MainWindow | Python | アプリウィンドウ。`QMainWindow` を継承。`QWebEngineView` を配置し `QWebChannel` を初期化する。D&D は処理しない前提でイベントを抑止する |
+| COMP-02 | BackendBridge | Python | `QObject` を継承し `@pyqtSlot` でJSから呼び出し可能なメソッドを提供するクラス。D&D 禁止通知メソッド（`notifyDropBlocked`）を含む |
 | COMP-03 | FileService | Python | ファイルI/O処理（ツリー取得・読み込み・保存・作成・削除・名前変更・バリデーション）を担当 |
 | COMP-04 | UIPage | HTML/CSS | `QWebEngineView` にロードされるメインHTML。左右ペインのレイアウトを定義 |
 | COMP-05 | TreeView | JavaScript | 左ペインのファイルツリー描画・操作ロジック |
@@ -179,8 +176,8 @@ mdFileReader/
 | JS ⇔ Python 呼び出しラッパー | JavaScript | COMP-09 |
 | Ctrl+S ショートカット処理 | JavaScript | COMP-06 |
 | 削除確認ダイアログ表示 | JavaScript | COMP-05 |
-| D&D イベント受付（dragover/drop） | JavaScript | COMP-09, COMP-05 |
-| D&D ファイル処理（拡張子検証・ルート切替・表示） | Python | COMP-02, COMP-03 |
+| D&D イベント抑止（dragover/drop） | JavaScript | COMP-09, COMP-05 |
+| D&D 禁止通知処理（読み込み・更新なし） | Python | COMP-02, COMP-03 |
 
 ---
 
@@ -287,7 +284,7 @@ JS ← Python のすべての返却値は以下の統一フォーマットを使
 | `ENCODING_ERROR` | 文字コード判定・デコード失敗（UTF-8 フォールバック後も失敗） |
 | `ENCODE_SAVE_ERROR` | 元エンコードで表現できない文字を含む内容の保存失敗 |
 | `FILE_EXISTS` | 同名ファイルが既に存在する（名前変更時） |
-| `INVALID_EXTENSION` | `.md` 以外の拡張子のファイルが D&D でドロップされた |
+| `DROP_BLOCKED` | D&D 操作が実行された（拡張子に関わらず禁止） |
 | `UNKNOWN_ERROR` | 上記以外の予期しないエラー |
 
 ### 7.4 FE 判定ルール
@@ -319,9 +316,9 @@ else:
 | FE-09 | 削除確認ダイアログ | ファイル削除前にJS標準の `confirm()` ダイアログを表示する | COMP-05 |
 | FE-10 | ステータスバー通知 | 未保存変更・保存完了・エラーをステータスバーに表示する | COMP-08 |
 | FE-11 | QWebChannel 初期化 | `qwebchannel.js` を使い `new QWebChannel()` で BackendBridge に接続する | COMP-09 |
-| FE-12 | D&D イベントハンドリング | `dragover` で `event.preventDefault()` を実行し、`drop` でファイルパスを取得して `backend.openDroppedFile()` を呼び出す | COMP-09, COMP-05 |
-| FE-13 | D&D 後のツリー・エディタ更新 | D&D 成功時にツリーを再描画し、ドロップファイルを選択状態に設定してエディタ・プレビューを更新する（`FE-02` と同等） | COMP-05, COMP-06, COMP-07 |
-| FE-14 | D&D エラー表示 | 非対応拡張子ドロップ時または処理エラー時にステータスバーにエラーメッセージを表示する | COMP-08 |
+| FE-12 | D&D イベント抑止 | `dragover` / `drop` の両イベントで `event.preventDefault()` を実行し、ファイルパス取得や通常オープンを行わない | COMP-09, COMP-05 |
+| FE-13 | D&D 禁止通知表示 | `drop` 時に `backend.notifyDropBlocked()` を呼び出し、禁止メッセージをステータスバーに表示する | COMP-08, COMP-09 |
+| FE-14 | D&D 無影響保証 | D&D 実行後もツリー選択・エディタ内容・プレビュー内容を変更しない（`FE-02` を呼び出さない） | COMP-05, COMP-06, COMP-07 |
 
 ### 8.2 バックエンド機能（Python）
 
@@ -336,7 +333,7 @@ else:
 | BE-07 | 名前変更 | ファイル/フォルダの名前を変更し成功/失敗をJSONで返す | COMP-03 |
 | BE-08 | パスバリデーション | 操作対象パスがベースフォルダ配下かを `Path.resolve()` で検証する | COMP-03 |
 | BE-09 | エラーハンドリング | 例外を捕捉し統一JSONフォーマットでエラーを返す | COMP-02, COMP-03 |
-| BE-10 | D&D ファイル処理 | `openDroppedFile(filePath)` として公開。① 拡張子バリデーション（`.md` のみ）、② ルートフォルダ判定（外部の場合は親フォルダをルートに自動設定）、③ `BE-02` 相当のツリー取得、④ `BE-03` 相当のファイル読み込み（chardet 判定・エンコード保持）を順に実行し、ツリーデータ＋ファイル内容を返す | COMP-02, COMP-03 |
+| BE-10 | D&D 禁止通知処理 | `notifyDropBlocked()` として公開。D&D 操作時に禁止通知を返却し、`BE-02`/`BE-03`/`BE-04` を呼び出さない。UI状態を変更しない | COMP-02, COMP-03 |
 
 ### 8.3 画面遷移とUI責務
 
@@ -386,8 +383,7 @@ else:
 | 文字コード判定失敗 | UTF-8 フォールバック。失敗時は `ENCODING_ERROR` を返却 | ステータスバーに警告表示 |
 | エンコード非対応文字の保存失敗 | `ENCODE_SAVE_ERROR` を返却（データを破棄しない） | ステータスバーにエラー表示、未保存フラグを維持 |
 | 削除対象が存在しない | `FILE_NOT_FOUND` を返却 | ステータスバーにエラー表示 |
-| D&D で非対応拡張子ファイルをドロップ | `INVALID_EXTENSION` を返却 | ステータスバーにエラー表示（`FE-14`） |
-| D&D で Shift-JIS ファイルをドロップ（文字化け防止） | BE-10 内で必ず `BE-03` の chardet 判定フローを経由。`cp932` 検出で正常デコード | 文字化けなくエディタ表示。エラー時は `ENCODING_ERROR` をステータスバーに表示 |
+| D&D で任意ファイルをドロップ | `DROP_BLOCKED` を返却（読み込み・ツリー更新なし） | ステータスバーに禁止メッセージを表示（`FE-13`）。画面状態は不変 |
 | 同名ファイルへの名前変更 | JS 側で先に確認ダイアログを表示。ユーザ確認後に BE を呼び出す | 確認ダイアログ（`confirm()`）表示 |
 | 未保存変更あり状態でファイル切替 | BE 処理なし | ステータスバーに「未保存の変更があります」を常時表示（ダイアログなし） |
 | 予期しない例外 | `UNKNOWN_ERROR` を返却 | ステータスバーにエラー表示 |
@@ -401,7 +397,7 @@ else:
 | # | 引継ぎ項目 | 説明 |
 |---|------------|------|
 | 1 | `MainWindow` クラス定義 | `QMainWindow` 継承、`QWebEngineView` 配置、`QWebChannel` セットアップ、HTMLロード処理 |
-| 2 | `BackendBridge` クラス定義 | `QObject` 継承、`@pyqtSlot` デコレータによるJS公開メソッド（BE-01〜BE-09） |
+| 2 | `BackendBridge` クラス定義 | `QObject` 継承、`@pyqtSlot` デコレータによるJS公開メソッド（BE-01〜BE-10） |
 | 3 | `FileService` クラス定義 | ファイルI/O全処理の内部実装。**`chardet` で Shift-JIS(想定 `cp932`)/UTF-8 判定、エンコード保持ロジック、元エンコード保持保存**。`chardet` 依存関係のバージョン固定も含む |
 | 4 | PyInstaller スペックファイル | `resources/` の `--add-data` 設定、`.exe` 単一ファイル化設定 |
 
@@ -425,7 +421,7 @@ else:
 | 2 | Python 側と JavaScript 側の責務境界が明確に定義されている | ⬜ レビュー待ち |
 | 3 | QWebChannel 連携インターフェース（メソッド・JSON形式）が定義されている | ⬜ レビュー待ち |
 | 4 | 詳細設計で実装単位に分解できる粒度になっている | ⬜ レビュー待ち |
-| 5 | GitHub 使用者のレビュー承認が完了している | ⬜ レビュー待ち |
+| 5 | GitHub 使用者のレビュー承認が完了している | ✅ 承認済み |
 
 ---
 
@@ -463,15 +459,14 @@ else:
 | REQ-UI-06 | Ctrl+S 保存 | FE-08 |
 | REQ-UI-07 | フォルダ選択 | BE-01（ダイアログ） |
 | REQ-UI-08 | HTML リソース同梱 | §3.2 配置構成 |
-| REQ-UI-09 | D&D ドロップ対象領域 | FE-12（drop イベント対象を右ペイン全体に設定） |
-| REQ-UI-10 | D&D エラー表示 | FE-14（StatusBar） |
-| REQ-IN-05 | D&D ファイル入力 | FE-12, BE-10 |
-| REQ-PROC-02a | D&D ファイル受付 | BE-10（openDroppedFile） |
-| REQ-PROC-02b | D&D パスバリデーション | BE-10（拡張子チェック） |
-| REQ-PROC-02c | D&D 後のツリー更新 | BE-10（ルート切替 + BE-02 相当）, FE-13 |
-| REQ-PROC-02d | D&D 後の表示動作 | BE-10（BE-03 相当）, FE-13（FE-02 相当） |
-| REQ-ERR-09 | D&D 非対応ファイル異常系 | BE-10（INVALID_EXTENSION）, FE-14 |
-| REQ-ERR-10 | D&D Shift-JIS 文字化け防止 | BE-10 → BE-03（chardet 強制適用） |
+| REQ-UI-09 | D&D 無効化 | FE-12（dragover/drop 抑止） |
+| REQ-UI-10 | D&D 禁止表示 | FE-13（StatusBar） |
+| REQ-IN-05 | D&D 入力禁止 | FE-12, BE-10 |
+| REQ-PROC-02a | D&D イベント拒否 | BE-10（notifyDropBlocked） |
+| REQ-PROC-02b | D&D 無影響保証 | FE-14, BE-10 |
+| REQ-PROC-02c | D&D 通知 | FE-13, BE-10 |
+| REQ-ERR-09 | D&D 操作の禁止 | BE-10（DROP_BLOCKED）, FE-13 |
+| REQ-ERR-10 | D&D 操作後の状態保証 | FE-14, BE-10 |
 | REQ-OPS-01〜05 | 運用要件 | §3 システム構成、§9 例外時方針 |
 | REQ-MNT-01〜04 | 保守要件 | §3.2 配置構成、開発プロセス |
 | REQ-ERR-01〜10 | 例外・異常時要件 | §9 例外時方針 |
@@ -487,6 +482,7 @@ else:
 | v1.0.0 | `01_requirements.md` v1.0.0 をもとに初版を新規作成 | 2026-03-02 |
 | v1.1.0 | `01_requirements.md` v1.1.0 の変更（Shift-JIS 対応強化、エンコード保持保存）を反映 | 2026-03-02 |
 | v1.2.0 | `01_requirements.md` v1.2.0 の変更（D&D 機能追加・Shift-JIS D&D 文字化け対応）を反映 | 2026-03-02 |
+| v1.3.0 | `01_requirements.md` v1.3.0 の変更（D&D 機能禁止・ドロップ時未読込）を反映 | 2026-03-03 |
 
 ### 13.1 変更一覧（v1.0.0 → v1.1.0）
 
@@ -543,6 +539,38 @@ else:
 | 3 | D&D で Shift-JIS ファイルを開いた場合に文字化けが発生しないこと（本バグ修正の核心） |
 | 4 | D&D 後にファイルツリーが正しく更新・選択状態になること |
 | 5 | D&D で非 `.md` ファイルをドロップした場合にエラーが表示されアプリがクラッシュしないこと |
+
+### 13.7 変更一覧（v1.2.0 → v1.3.0）
+
+**変更背景:** 要件定義 v1.3.0 で D&D 機能は全面禁止へ変更された。これに合わせ、D&D の設計を「ファイルオープン機能」から「イベント抑止＋禁止通知」へ変更する。
+
+| 変更種別 | 対象 | 内容 |
+|----------|------|------|
+| 変更 | §1 文書情報 | 版数 v1.3.0、参照元を `01_requirements.md` v1.3.0 / `minutes_v130.md` に更新 |
+| 変更 | §4.1 フロー | D&D フローを「受付・読み込み」から「抑止・通知」に変更 |
+| 変更 | §5.1 COMP-01/02 | `acceptDrops(True)` と `openDroppedFile` 前提を廃止し、`notifyDropBlocked` を定義 |
+| 変更 | §5.2 責務分離表 | D&D を「イベント受付/処理」から「イベント抑止/禁止通知」に変更 |
+| 変更 | §7.3 error_code | `INVALID_EXTENSION` を `DROP_BLOCKED` に変更 |
+| 変更 | §8.1 FE-12〜14 | D&D 関連機能を「開封」から「抑止・通知・状態維持」へ変更 |
+| 変更 | §8.2 BE-10 | `openDroppedFile` を廃止し `notifyDropBlocked` へ変更 |
+| 変更 | §9 例外時方針 | D&D は拡張子判定せず一律禁止し、状態不変とする方針へ変更 |
+| 変更 | §12 トレーサビリティ | REQ-IN-05 / REQ-PROC-02a〜02c / REQ-UI-09〜10 / REQ-ERR-09〜10 の対応を禁止要件へ更新 |
+
+### 13.8 詳細設計への追加引継ぎ（v1.3.0）
+
+| # | 引継ぎ項目 | 詳細 |
+|---|------------|------|
+| 1 | `BackendBridge.notifyDropBlocked()` | D&D 実行時に禁止通知を返却する `@pyqtSlot`。ファイルパスの取得・読み込み・ツリー更新を行わないこと |
+| 2 | JS 側 D&D ハンドラ | `dragover` / `drop` で `event.preventDefault()` を実行し、`backend.notifyDropBlocked()` のみ呼び出す。`backend.readFile()` 等は呼び出さないこと |
+| 3 | D&D 状態維持設計 | D&D 実行後も現在のルートフォルダ、選択状態、エディタ内容、プレビュー内容を変更しないこと |
+
+### 13.9 回帰確認観点（v1.3.0）
+
+| # | 観点 |
+|---|------|
+| 1 | ファイルツリーからの選択・編集・保存（既存機能）が D&D 禁止化後も正常動作すること |
+| 2 | D&D 実行時にファイルが開かれず、禁止メッセージのみ表示されること |
+| 3 | D&D 実行後もツリー・エディタ・プレビューの状態が不変であること |
 
 ### 13.3 回帰確認観点（v1.1.0）
 
