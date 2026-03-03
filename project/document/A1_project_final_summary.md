@@ -91,8 +91,8 @@
 
 | 項目 | 内容 |
 |------|------|
-| GitHub Releases | （v1.3.0 公開後に記入） |
-| タグ | v1.3.0（作成予定） |
+| GitHub Releases | https://github.com/1087285/mdFileReader/releases/tag/v1.3.0 |
+| タグ | v1.3.0 |
 
 ---
 

@@ -56,13 +56,13 @@ Windows 実機での以下の作業完了後、最終 Go 判定とする。
 | # | タスク | 担当 | 状態 |
 |---|--------|------|------|
 | 1 | `setup_resources.py` を実行してリソースを配置 | リリース担当者 | ✅ 実行済み（リソース同梱確認済み） |
-| 2 | `pyinstaller project/src/mdFileReader.spec` で実行ファイルビルド | リリース担当者 | ⚠️ Windows 実機ビルド待ち |
+| 2 | `pyinstaller project/src/mdFileReader.spec` で実行ファイルビルド | リリース担当者 | ✅ 実行済み（GitHub Actions: windows-latest で `mdFileReader.exe` 生成） |
 | 3 | `ACC-OK-01～15`（正常系受入テスト）全件手動確認 | リリース担当者 | ⚠️ 実機確認待ち |
 | 4 | `ACC-NG-01〜09`（異常系受入テスト）全件手動確認（`ACC-NG-03` は pytest 確認済み） | リリース担当者 | ⚠️ 実機確認待ち |
-| 5 | `git tag v1.3.0 && git push origin v1.3.0` 実行 | リリース担当者 | ⬜ 未実施 |
-| 6 | GitHub Releases 本体作成・`A2_release_notes.md` の v1.3.0 セクションを本文として反映 | リリース担当者 | ⬜ 未実施 |
-| 7 | `mdFileReader.exe`（Windows 実機ビルド）を GitHub Releases にアタッチ | リリース担当者 | ⬜ 未実施 |
-| 8 | リリース URL を `A1_project_final_summary.md` と `A2_release_notes.md` に記入 | リリース担当者 | ⬜ 未実施 |
+| 5 | `git tag v1.3.0 && git push origin v1.3.0` 実行 | リリース担当者 | ✅ 実行済み（2026-03-03） |
+| 6 | GitHub Releases 本体作成・`A2_release_notes.md` の v1.3.0 セクションを本文として反映 | リリース担当者 | ✅ 実行済み（2026-03-03） |
+| 7 | `mdFileReader.exe`（Windows 実機ビルド）を GitHub Releases にアタッチ | リリース担当者 | ✅ 実行済み（2026-03-03, Asset: mdFileReader.exe） |
+| 8 | リリース URL を `A1_project_final_summary.md` と `A2_release_notes.md` に記入 | リリース担当者 | ✅ 記入済み（2026-03-03） |
 
 ---
 
@@ -72,7 +72,7 @@ Windows 実機での以下の作業完了後、最終 Go 判定とする。
 |--------|---------|------|
 | `README.md` | アプリ概要・起動方法・機能一覧・開発者向け情報が最新化されている | ✅ 更新済み（工程8 v1.3.0） |
 | `A1_project_final_summary.md` | 工程1〜8の判定結果が統合されている | ✅ 更新済み（工程8 v1.3.0） |
-| `A2_release_notes.md` | v1.3.0 の変更点・既知制約・リリース URL 欄が記載されている | ✅ 更新済み（URL はリリース後記入） |
+| `A2_release_notes.md` | v1.3.0 の変更点・既知制約・リリース URL 欄が記載されている | ✅ 更新済み（URL 記入済み） |
 | `A3_push_operation_guide.md` | push 手順・リリースタグ手順が v1.3.0 に整合している | ✅ 更新済み（工程8 v1.3.0） |
 | `project/src/requirements.txt` | 依存パッケージが固定バージョンで記載されている | ✅ 確認済み |
 | `project/src/mdFileReader.spec` | PyInstaller ビルド設定が正しい | ✅ 確認済み |
@@ -84,13 +84,13 @@ Windows 実機での以下の作業完了後、最終 Go 判定とする。
 
 | 項目 | 状態 |
 |------|------|
-| リリースタグ `v1.3.0` | ⬜ 未作成 |
-| GitHub Releases 本体 | ⬜ 未作成 |
+| リリースタグ `v1.3.0` | ✅ 作成・push 完了（2026-03-03） |
+| GitHub Releases 本体 | ✅ 作成完了 https://github.com/1087285/mdFileReader/releases/tag/v1.3.0 |
 | Linux 実行ファイルビルド | ✅ `project/src/dist/mdFileReader` 生成済み（Linux ELF） |
 | GitHub Actions ワークフロー | ✅ `.github/workflows/build-release.yml` 作成済み |
-| Windows `.exe` 自動ビルド | ⬜ タグ push 後に実行 |
-| `.exe` アタッチ（GitHub Releases） | ⬜ 未実施 |
-| リリース URL の A1/A2 への反映 | ⬜ 未記入 |
+| Windows `.exe` 自動ビルド | ✅ 完了（Run: 22605020148, success） |
+| `.exe` アタッチ（GitHub Releases） | ✅ 完了（`mdFileReader.exe`） |
+| リリース URL の A1/A2 への反映 | ✅ 記入済み |
 
 ---
 
@@ -154,4 +154,4 @@ Windows 実機での以下の作業完了後、最終 Go 判定とする。
 | 最終判定更新 | §3 | pytest 49 件 PASS に更新 |
 | 判定根拠更新 | §4 | UT 25件・IT 24件・GUI 24件に更新 |
 | リリース条件更新 | §5 | 受入テストを ACC-OK-15、ACC-NG-09 に整合 |
-| 実施状況更新 | §7 | v1.3.0 タグ/Releases は未実施状態に更新 |
+| 実施状況更新 | §7 | v1.3.0 タグ/Releases 作成完了と `.exe` アタッチ完了を反映 |
