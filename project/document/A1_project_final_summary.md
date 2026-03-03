@@ -91,7 +91,7 @@
 
 | 項目 | 内容 |
 |------|------|
-| GitHub Releases | ⚠️ v1.2.0 タグ作成待ち |
+| GitHub Releases | https://github.com/1087285/mdFileReader/releases/tag/v1.2.0 |
 | タグ | v1.2.0 |
 
 ---

@@ -59,10 +59,10 @@ Windows 実機での以下の作業完了後、最終 Go 判定とする。
 | 2 | `pyinstaller project/src/mdFileReader.spec` で実行ファイルビルド | 08エージェント（自動） | ✅ ビルド完了（`project/src/dist/mdFileReader`、Linux ELF、192MB）⚠️ Windows .exe は Windows 実機でのビルドが必要 |
 | 3 | `ACC-OK-01～16`（正常系受入テスト）全件手動確認 | リリース担当者 | ⚠️ 実機確認待ち |
 | 4 | `ACC-NG-01〜09`（異常系受入テスト）全件手動確認（`ACC-NG-03` は pytest 確認済み） | リリース担当者 | ⚠️ 実機確認待ち |
-| 5 | `git tag v1.0.0 && git push origin v1.0.0` 実行 | リリース担当者 | ⚠️ 実機確認後に実行 |
-| 6 | GitHub Releases 本体作成・`A2_release_notes.md` の v1.0.0 セクションを本文として反映 | リリース担当者 | ⚠️ タグ作成後に実行 |
-| 7 | `mdFileReader.exe`（Windows 実機ビルド）を GitHub Releases にアタッチ | リリース担当者 | ⚠️ Windows ビルド後に実行 |
-| 8 | リリース URL を `A1_project_final_summary.md` と `A2_release_notes.md` に記入 | リリース担当者 | ⚠️ Releases 作成後に記入 |
+| 5 | `git tag v1.2.0 && git push origin v1.2.0` 実行 | リリース担当者 | ✅ 実行済み（2026-03-03） |
+| 6 | GitHub Releases 本体作成・`A2_release_notes.md` の v1.2.0 セクションを本文として反映 | リリース担当者 | ✅ 実行済み（2026-03-03） |
+| 7 | `mdFileReader.exe`（Windows 実機ビルド）を GitHub Releases にアタッチ | リリース担当者 | ⚠️ Windows ビルド待ち |
+| 8 | リリース URL を `A1_project_final_summary.md` と `A2_release_notes.md` に記入 | リリース担当者 | ✅ 記入済み |
 
 ---
 
@@ -84,13 +84,13 @@ Windows 実機での以下の作業完了後、最終 Go 判定とする。
 
 | 項目 | 状態 |
 |------|------|
-| リリースタグ `v1.0.0` | ⚠️ 実機受入テスト完了後に作成・push |
-| GitHub Releases 本体 | ⚠️ タグ作成後に作成 |
+| リリースタグ `v1.2.0` | ✅ 作成・push 完了（2026-03-03） |
+| GitHub Releases 本体 | ✅ 作成完了 https://github.com/1087285/mdFileReader/releases/tag/v1.2.0 |
 | Linux 実行ファイルビルド | ✅ `project/src/dist/mdFileReader`（ELF 64-bit, 192MB）生成済み |
 | GitHub Actions ワークフロー作成 | ✅ `.github/workflows/build-release.yml` 作成済み |
-| Windows `.exe` 自動ビルド | ⚠️ `git tag vX.Y.Z && git push origin vX.Y.Z` 実行後に GitHub Actions で自動生成 |
-| `.exe` アタッチ（GitHub Releases） | ⚠️ Actions 完了後に自動アタッチ |
-| リリース URL の A1/A2 への反映 | ⚠️ Releases 作成後に記入 |
+| Windows `.exe` 自動ビルド | ⚠️ GitHub Actions 実行中（タグ push 完了） |
+| `.exe` アタッチ（GitHub Releases） | ⚠️ Actions 完了待ち |
+| リリース URL の A1/A2 への反映 | ✅ 記入済み |
 
 ---
 
